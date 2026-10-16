@@ -1,0 +1,6 @@
+{
+  "name": "FitMorph - Transformação & Fitness IA",
+  "description": "Aplicativo completo de mudança corporal com rastreador nutricional por IA com análise por foto, fichas de treino detalhadas, projeção de metas e comparador de evolução.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
