@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-[#050a18]/95 backdrop-blur-xl border-b border-[#142344] shadow-2xl">
+      <header className="sticky top-0 z-30 bg-[#050a18]/95 backdrop-blur-xl border-b border-[#142344] shadow-2xl safe-area-top">
         {/* ROW 1: Brand Identity & Quick Utilities (Full width, spacious, never crowded) */}
         <div className="border-b border-[#121f3d]/70 bg-gradient-to-r from-[#040813] via-[#071126] to-[#040813]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-15 sm:h-16 flex items-center justify-between gap-4">
@@ -194,7 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Modal Drawer Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden bg-[#03060f]/80 backdrop-blur-sm flex flex-col justify-end p-3 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 lg:hidden bg-[#03060f]/80 backdrop-blur-sm flex flex-col justify-end p-3 animate-in fade-in duration-200 safe-area-top safe-area-bottom">
           <div className="bg-[#0a142c] border border-[#1a2d56] rounded-3xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#17284f]">
               <div className="flex items-center gap-2">

@@ -124,7 +124,7 @@ export const FoodCalculatorModal: React.FC<FoodCalculatorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-[#03060f]/85 backdrop-blur-md overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-[#03060f]/85 backdrop-blur-md overflow-y-auto safe-area-top safe-area-bottom">
       <div className="relative w-full max-w-2xl bg-[#0a142c] border border-[#1a2d56] rounded-3xl shadow-2xl overflow-hidden my-auto">
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 border-b border-[#17284f] flex items-center justify-between bg-[#081022]">

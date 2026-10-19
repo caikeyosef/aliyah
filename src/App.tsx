@@ -59,7 +59,7 @@ import { SetGoalModal } from './components/SetGoalModal';
 import { FoodCalculatorModal } from './components/FoodCalculatorModal';
 import { DataBackupModal } from './components/DataBackupModal';
 import { AliyahBackupPayload } from './utils/backup';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, ArrowUp, Database } from 'lucide-react';
 
 export default function App() {
   const [profile, setProfile] = useState<UserProfile>(getStoredProfile);
@@ -351,8 +351,8 @@ export default function App() {
         targetDays={profile.targetDays}
       />
 
-      {/* Main Container - with bottom padding on mobile for bottom dock */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-24 lg:pb-10">
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-8 lg:pb-10">
         {activeTab === 'dashboard' && (
           <DashboardTab
             profile={profile}
@@ -437,27 +437,42 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[#121f3d] bg-[#050a17] py-6 text-center text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent font-heading text-sm">
-              Aliyah
-            </span>
-            <span className="text-amber-400 font-serif font-bold text-xs" dir="rtl">
-              עלייה
-            </span>
-            <span className="text-slate-500">•</span>
-            <span className="text-slate-400 tracking-wider text-xs uppercase font-medium">
+      {/* Footer - Optimized for mobile with clearance above fixed dock and balanced layout */}
+      <footer className="border-t border-[#121f3d] bg-[#050a17] pt-6 pb-28 lg:pb-8 text-center text-xs text-slate-400">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center sm:text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent font-heading text-sm">
+                Aliyah
+              </span>
+              <span className="text-amber-400 font-serif font-bold text-xs" dir="rtl">
+                עלייה
+              </span>
+            </div>
+            <span className="hidden sm:inline text-slate-600">•</span>
+            <span className="text-slate-400 tracking-wider text-[11px] sm:text-xs uppercase font-medium">
               EVOLUÇÃO • TRANSFORMAÇÃO • BEM-ESTAR
             </span>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs pt-1 sm:pt-0">
+            <button
+              onClick={() => setIsBackupModalOpen(true)}
+              className="text-slate-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Database className="w-3.5 h-3.5 text-amber-400" /> Backup
+            </button>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <ArrowUp className="w-3.5 h-3.5" /> Topo
+            </button>
             <button
               onClick={() => setIsResetModalOpen(true)}
-              className="text-slate-400 hover:text-rose-400 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Zerar Todos os Dados
+              <RotateCcw className="w-3.5 h-3.5" /> Zerar Dados
             </button>
           </div>
         </div>
@@ -490,7 +505,7 @@ export default function App() {
 
       {/* GLOBAL RESET CONFIRMATION MODAL */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#03060f]/85 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#03060f]/85 backdrop-blur-md safe-area-top safe-area-bottom">
           <div className="relative w-full max-w-md bg-[#0a142c] border border-[#1a2d56] rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/20">
               <RotateCcw className="w-7 h-7" />
