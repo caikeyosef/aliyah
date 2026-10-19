@@ -24,6 +24,8 @@ import {
   Edit2,
   History,
   Check,
+  GripVertical,
+  ChevronUp,
 } from 'lucide-react';
 
 interface WorkoutsTabProps {
@@ -52,6 +54,13 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [templateName, setTemplateName] = useState('');
   const [templateFocus, setTemplateFocus] = useState('');
   const [templateExercises, setTemplateExercises] = useState<WorkoutTemplateExercise[]>([]);
+
+  // Drag and drop state for reordering exercises in template
+  const [draggedExerciseIndex, setDraggedExerciseIndex] = useState<number | null>(null);
+  const [dragOverExerciseIndex, setDragOverExerciseIndex] = useState<number | null>(null);
+  const touchStartYRef = useRef<number>(0);
+  const touchItemIndexRef = useRef<number | null>(null);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Exercise input inside Ficha modal
   const [tempExName, setTempExName] = useState('');
@@ -140,6 +149,78 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
   const handleRemoveExerciseFromTemplate = (id: string) => {
     setTemplateExercises(templateExercises.filter((e) => e.id !== id));
+  };
+
+  // Reorder exercises in template
+  const handleMoveExercise = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= templateExercises.length || fromIndex === toIndex) return;
+    setTemplateExercises((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedExerciseIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverExerciseIndex !== index) {
+      setDragOverExerciseIndex(index);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedExerciseIndex !== null && draggedExerciseIndex !== targetIndex) {
+      handleMoveExercise(draggedExerciseIndex, targetIndex);
+    }
+    setDraggedExerciseIndex(null);
+    setDragOverExerciseIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedExerciseIndex(null);
+    setDragOverExerciseIndex(null);
+  };
+
+  // Touch handlers for mobile press-and-drag
+  const handleTouchStart = (e: React.TouchEvent, index: number) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    touchItemIndexRef.current = index;
+    setDraggedExerciseIndex(index);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchItemIndexRef.current === null) return;
+    const currentY = e.touches[0].clientY;
+
+    for (let i = 0; i < itemRefs.current.length; i++) {
+      const el = itemRefs.current[i];
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (currentY >= rect.top && currentY <= rect.bottom) {
+          if (i !== touchItemIndexRef.current) {
+            handleMoveExercise(touchItemIndexRef.current, i);
+            touchItemIndexRef.current = i;
+            setDraggedExerciseIndex(i);
+          }
+          break;
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchItemIndexRef.current = null;
+    setDraggedExerciseIndex(null);
+    setDragOverExerciseIndex(null);
   };
 
   // Save the ficha
@@ -1110,7 +1191,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
       {/* MODAL: CRIAR / EDITAR FICHA DE TREINO */}
       {isTemplateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#03060f]/85 backdrop-blur-md overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#03060f]/85 backdrop-blur-md overflow-y-auto safe-area-top safe-area-bottom">
           <div className="relative w-full max-w-xl bg-[#0a142c] border border-[#1a2d56] rounded-3xl shadow-2xl overflow-hidden my-auto space-y-4">
             <div className="px-6 py-4 border-b border-[#17284f] flex items-center justify-between bg-[#081022]">
               <div className="flex items-center gap-2">
@@ -1219,40 +1300,102 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                 </button>
               </div>
 
-              {/* Current exercises in draft */}
+              {/* Current exercises in draft with drag-and-drop reordering */}
               <div>
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-                  Exercícios nesta Ficha ({templateExercises.length})
-                </span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                    Exercícios nesta Ficha ({templateExercises.length})
+                  </span>
+                  {templateExercises.length > 1 && (
+                    <span className="text-[11px] text-amber-400 font-medium flex items-center gap-1">
+                      <GripVertical className="w-3.5 h-3.5" /> Segure e arraste para ordenar
+                    </span>
+                  )}
+                </div>
 
                 {templateExercises.length > 0 ? (
                   <div className="space-y-2">
-                    {templateExercises.map((ex, idx) => (
-                      <div
-                        key={ex.id}
-                        className="p-2.5 bg-[#060c19] border border-[#17284f] rounded-xl flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-md bg-[#122247] text-amber-400 font-mono text-[10px] font-bold flex items-center justify-center border border-amber-500/20">
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <span className="font-semibold text-white">{ex.name}</span>
-                            <span className="text-slate-400 text-[11px] ml-1.5">
-                              ({ex.defaultSets} séries • {ex.targetReps})
+                    {templateExercises.map((ex, idx) => {
+                      const isDragging = draggedExerciseIndex === idx;
+                      const isDragOver = dragOverExerciseIndex === idx && !isDragging;
+
+                      return (
+                        <div
+                          key={ex.id}
+                          ref={(el) => {
+                            itemRefs.current[idx] = el;
+                          }}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, idx)}
+                          onDragOver={(e) => handleDragOver(e, idx)}
+                          onDrop={(e) => handleDrop(e, idx)}
+                          onDragEnd={handleDragEnd}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all select-none ${
+                            isDragging
+                              ? 'bg-[#122247] border-amber-400 opacity-60 shadow-lg scale-[1.01]'
+                              : isDragOver
+                              ? 'bg-[#0f1d3a] border-amber-400/80 shadow-md'
+                              : 'bg-[#060c19] border-[#17284f] hover:border-[#1e3a6e]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {/* Drag Grip Handle with touch and mouse drag capabilities */}
+                            <div
+                              onTouchStart={(e) => handleTouchStart(e, idx)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                              className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-400 hover:text-amber-400 transition-colors shrink-0"
+                              title="Segure e arraste para reordenar"
+                            >
+                              <GripVertical className="w-4 h-4" />
+                            </div>
+
+                            <span className="w-5 h-5 rounded-md bg-[#122247] text-amber-400 font-mono text-[10px] font-bold flex items-center justify-center border border-amber-500/20 shrink-0">
+                              {idx + 1}
                             </span>
+                            <div className="min-w-0">
+                              <span className="font-semibold text-white truncate block">{ex.name}</span>
+                              <span className="text-slate-400 text-[11px]">
+                                {ex.defaultSets} séries • {ex.targetReps}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Quick Accessible Move Up/Down buttons */}
+                            <div className="flex items-center gap-0.5 mr-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveExercise(idx, idx - 1)}
+                                className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-[#122247] disabled:opacity-20 disabled:hover:bg-transparent transition-all cursor-pointer"
+                                title="Mover para cima"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === templateExercises.length - 1}
+                                onClick={() => handleMoveExercise(idx, idx + 1)}
+                                className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-[#122247] disabled:opacity-20 disabled:hover:bg-transparent transition-all cursor-pointer"
+                                title="Mover para baixo"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveExerciseFromTemplate(ex.id)}
+                              className="text-slate-400 hover:text-rose-400 p-1.5 rounded-md hover:bg-rose-950/20 transition-colors cursor-pointer"
+                              title="Remover exercício da ficha"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExerciseFromTemplate(ex.id)}
-                          className="text-slate-400 hover:text-rose-400 p-1 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-4 text-xs text-slate-400 border border-dashed border-[#17284f] rounded-xl bg-[#060c19]/50">
