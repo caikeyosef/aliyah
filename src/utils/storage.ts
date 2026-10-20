@@ -8,6 +8,8 @@ import {
   AICoachFeedback,
   HabitItem,
 } from '../types/fitness';
+import { GPXActivity } from '../types/running';
+import { RunnaProfile, RunnaPlan, ReadinessCheckin } from '../types/runna';
 import { calculateCompleteProfile } from './fitnessMath';
 
 export const STORAGE_KEYS = {
@@ -21,6 +23,10 @@ export const STORAGE_KEYS = {
   HAS_ONBOARDED: 'fitmorph_has_onboarded',
   WATER_RECORDS: 'fitmorph_water_records',
   HABITS: 'fitmorph_habits',
+  RUNNING_ACTIVITIES: 'fitmorph_running_activities',
+  RUNNA_PROFILE: 'fitmorph_runna_profile',
+  RUNNA_PLAN: 'fitmorph_runna_plan',
+  RUNNA_READINESS: 'fitmorph_runna_readiness',
 };
 
 export function getTodayDateStr(): string {
@@ -340,3 +346,84 @@ export function saveStoredWaterForDate(record: DailyWaterRecord): void {
     console.error('Erro ao salvar água no localStorage', e);
   }
 }
+
+export function loadStoredRuns(): GPXActivity[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.RUNNING_ACTIVITIES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Erro ao carregar corridas do localStorage', e);
+  }
+  return [];
+}
+
+export function saveStoredRuns(runs: GPXActivity[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RUNNING_ACTIVITIES, JSON.stringify(runs));
+  } catch (e) {
+    console.error('Erro ao salvar corridas no localStorage', e);
+  }
+}
+
+export function loadRunnaProfile(): RunnaProfile | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.RUNNA_PROFILE);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Erro ao carregar perfil Runna', e);
+  }
+  return null;
+}
+
+export function saveRunnaProfile(profile: RunnaProfile): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RUNNA_PROFILE, JSON.stringify(profile));
+  } catch (e) {
+    console.error('Erro ao salvar perfil Runna', e);
+  }
+}
+
+export function loadRunnaPlan(): RunnaPlan | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.RUNNA_PLAN);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Erro ao carregar plano Runna', e);
+  }
+  return null;
+}
+
+export function saveRunnaPlan(plan: RunnaPlan): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RUNNA_PLAN, JSON.stringify(plan));
+  } catch (e) {
+    console.error('Erro ao salvar plano Runna', e);
+  }
+}
+
+export function loadReadinessCheckins(): ReadinessCheckin[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.RUNNA_READINESS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Erro ao carregar check-ins de prontidão', e);
+  }
+  return [];
+}
+
+export function saveReadinessCheckin(checkin: ReadinessCheckin): void {
+  try {
+    const all = loadReadinessCheckins();
+    const updated = [checkin, ...all.filter((c) => c.id !== checkin.id)].slice(0, 60);
+    localStorage.setItem(STORAGE_KEYS.RUNNA_READINESS, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Erro ao salvar check-in de prontidão', e);
+  }
+}
+

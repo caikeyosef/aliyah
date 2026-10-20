@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @theme {
   --color-navy-950: #050a18;
@@ -107,5 +108,29 @@
 
 .safe-area-right {
   padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Custom dark mode for OpenStreetMap tiles without any third-party API key */
+.map-dark-theme .leaflet-tile {
+  filter: brightness(0.62) invert(1) contrast(1.7) hue-rotate(200deg) saturate(0.35);
+}
+
+.map-dark-theme .leaflet-container {
+  background-color: #060c19 !important;
+}
+
+/* Custom Tooltips for Strava-like map markers */
+.strava-tooltip {
+  background-color: #091329 !important;
+  color: #f8fafc !important;
+  border: 1px solid #1a2d56 !important;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.strava-tooltip::before {
+  border-top-color: #091329 !important;
 }
 

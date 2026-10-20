@@ -54,6 +54,7 @@ import { HabitsTab } from './components/HabitsTab';
 import { ProgressChartsTab } from './components/ProgressChartsTab';
 import { PhotoCompareTab } from './components/PhotoCompareTab';
 import { ProfileGoalTab } from './components/ProfileGoalTab';
+import { RunningTab } from './components/RunningTab';
 import { OnboardingModal } from './components/OnboardingModal';
 import { SetGoalModal } from './components/SetGoalModal';
 import { FoodCalculatorModal } from './components/FoodCalculatorModal';
@@ -394,6 +395,10 @@ export default function App() {
             onSaveWorkout={handleSaveWorkout}
             onDeleteWorkout={handleDeleteWorkout}
           />
+        )}
+
+        {activeTab === 'running' && (
+          <RunningTab profile={profile} />
         )}
 
         {activeTab === 'habits' && (

@@ -26,6 +26,10 @@ export interface AliyahBackupPayload {
     hasOnboarded?: boolean;
     waterRecords?: Record<string, DailyWaterRecord>;
     habits?: HabitItem[];
+    runningActivities?: any[];
+    runnaProfile?: any;
+    runnaPlan?: any;
+    runnaReadiness?: any[];
   };
 }
 
@@ -36,6 +40,7 @@ export interface BackupCounts {
   foodLogs: number;
   habits: number;
   photos: number;
+  runs: number;
 }
 
 /**
@@ -49,6 +54,7 @@ export function getCurrentDataCounts(): BackupCounts {
     const foods = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOOD_LOGS) || '[]');
     const habits = JSON.parse(localStorage.getItem(STORAGE_KEYS.HABITS) || '[]');
     const photos = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROGRESS_PHOTOS) || '[]');
+    const runs = JSON.parse(localStorage.getItem(STORAGE_KEYS.RUNNING_ACTIVITIES) || '[]');
 
     return {
       workoutTemplates: Array.isArray(templates) ? templates.length : 0,
@@ -57,6 +63,7 @@ export function getCurrentDataCounts(): BackupCounts {
       foodLogs: Array.isArray(foods) ? foods.length : 0,
       habits: Array.isArray(habits) ? habits.length : 0,
       photos: Array.isArray(photos) ? photos.length : 0,
+      runs: Array.isArray(runs) ? runs.length : 0,
     };
   } catch {
     return {
@@ -66,6 +73,7 @@ export function getCurrentDataCounts(): BackupCounts {
       foodLogs: 0,
       habits: 0,
       photos: 0,
+      runs: 0,
     };
   }
 }
@@ -85,6 +93,10 @@ export function exportAppData(): { success: boolean; filename: string } {
     const hasOnboarded = localStorage.getItem(STORAGE_KEYS.HAS_ONBOARDED);
     const waterRecords = localStorage.getItem(STORAGE_KEYS.WATER_RECORDS);
     const habits = localStorage.getItem(STORAGE_KEYS.HABITS);
+    const runningActivities = localStorage.getItem(STORAGE_KEYS.RUNNING_ACTIVITIES);
+    const runnaProfile = localStorage.getItem(STORAGE_KEYS.RUNNA_PROFILE);
+    const runnaPlan = localStorage.getItem(STORAGE_KEYS.RUNNA_PLAN);
+    const runnaReadiness = localStorage.getItem(STORAGE_KEYS.RUNNA_READINESS);
 
     const payload: AliyahBackupPayload = {
       appName: 'Aliyah',
@@ -101,6 +113,10 @@ export function exportAppData(): { success: boolean; filename: string } {
         hasOnboarded: hasOnboarded === 'true',
         waterRecords: waterRecords ? JSON.parse(waterRecords) : {},
         habits: habits ? JSON.parse(habits) : [],
+        runningActivities: runningActivities ? JSON.parse(runningActivities) : [],
+        runnaProfile: runnaProfile ? JSON.parse(runnaProfile) : undefined,
+        runnaPlan: runnaPlan ? JSON.parse(runnaPlan) : undefined,
+        runnaReadiness: runnaReadiness ? JSON.parse(runnaReadiness) : [],
       },
     };
 
@@ -193,6 +209,18 @@ export function importAppData(jsonString: string): ImportResult {
     if (Array.isArray(targetData.habits)) {
       localStorage.setItem(STORAGE_KEYS.HABITS, JSON.stringify(targetData.habits));
     }
+    if (Array.isArray(targetData.runningActivities)) {
+      localStorage.setItem(STORAGE_KEYS.RUNNING_ACTIVITIES, JSON.stringify(targetData.runningActivities));
+    }
+    if (targetData.runnaProfile) {
+      localStorage.setItem(STORAGE_KEYS.RUNNA_PROFILE, JSON.stringify(targetData.runnaProfile));
+    }
+    if (targetData.runnaPlan) {
+      localStorage.setItem(STORAGE_KEYS.RUNNA_PLAN, JSON.stringify(targetData.runnaPlan));
+    }
+    if (Array.isArray(targetData.runnaReadiness)) {
+      localStorage.setItem(STORAGE_KEYS.RUNNA_READINESS, JSON.stringify(targetData.runnaReadiness));
+    }
 
     const counts: BackupCounts = {
       workoutTemplates: Array.isArray(targetData.workoutTemplates) ? targetData.workoutTemplates.length : 0,
@@ -201,6 +229,7 @@ export function importAppData(jsonString: string): ImportResult {
       foodLogs: Array.isArray(targetData.foodLogs) ? targetData.foodLogs.length : 0,
       habits: Array.isArray(targetData.habits) ? targetData.habits.length : 0,
       photos: Array.isArray(targetData.progressPhotos) ? targetData.progressPhotos.length : 0,
+      runs: Array.isArray(targetData.runningActivities) ? targetData.runningActivities.length : 0,
     };
 
     return {

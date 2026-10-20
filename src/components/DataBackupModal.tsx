@@ -12,6 +12,7 @@ import {
   Utensils,
   CheckSquare,
   Sparkles,
+  Activity,
 } from 'lucide-react';
 import { exportAppData, importAppData, getCurrentDataCounts, BackupCounts, AliyahBackupPayload } from '../utils/backup';
 
@@ -121,7 +122,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
             <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Seus Dados Gravados Atualmente
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <div className="bg-[#0a142c] p-2.5 rounded-xl border border-[#17284f] text-center">
                 <Dumbbell className="w-4 h-4 text-amber-400 mx-auto mb-1" />
                 <div className="text-base font-bold text-white font-mono">{counts.workoutLogs}</div>
@@ -131,6 +132,11 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
                 <FileCheck className="w-4 h-4 text-yellow-400 mx-auto mb-1" />
                 <div className="text-base font-bold text-white font-mono">{counts.workoutTemplates}</div>
                 <div className="text-[11px] text-slate-400">Fichas Criadas</div>
+              </div>
+              <div className="bg-[#0a142c] p-2.5 rounded-xl border border-[#17284f] text-center">
+                <Activity className="w-4 h-4 text-amber-400 mx-auto mb-1" />
+                <div className="text-base font-bold text-white font-mono">{counts.runs}</div>
+                <div className="text-[11px] text-slate-400">Corridas GPX</div>
               </div>
               <div className="bg-[#0a142c] p-2.5 rounded-xl border border-[#17284f] text-center">
                 <Scale className="w-4 h-4 text-emerald-400 mx-auto mb-1" />

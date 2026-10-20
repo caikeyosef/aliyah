@@ -14,14 +14,16 @@ import {
   Menu,
   X,
   Database,
+  Activity,
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
 export type TabType =
   | 'dashboard'
+  | 'workouts'
+  | 'running'
   | 'nutrition'
   | 'hydration'
-  | 'workouts'
   | 'habits'
   | 'charts'
   | 'photos'
@@ -48,9 +50,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const tabs: Array<{ id: TabType; label: string; shortLabel: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', shortLabel: 'Painel', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'workouts', label: 'Treinos', shortLabel: 'Treinos', icon: <Dumbbell className="w-4 h-4" /> },
+    { id: 'running', label: 'Corrida de Rua', shortLabel: 'Corrida', icon: <Activity className="w-4 h-4" /> },
     { id: 'nutrition', label: 'Nutrição', shortLabel: 'Nutrição', icon: <Utensils className="w-4 h-4" /> },
-    { id: 'hydration', label: 'Hidratação', shortLabel: 'Água', icon: <Droplet className="w-4 h-4 text-amber-300" /> },
-    { id: 'habits', label: 'Hábitos', shortLabel: 'Hábitos', icon: <CheckSquare className="w-4 h-4 text-amber-400" /> },
+    { id: 'hydration', label: 'Hidratação', shortLabel: 'Água', icon: <Droplet className="w-4 h-4" /> },
+    { id: 'habits', label: 'Hábitos', shortLabel: 'Hábitos', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'charts', label: 'Evolução', shortLabel: 'Evolução', icon: <LineChart className="w-4 h-4" /> },
     { id: 'photos', label: 'Antes & Depois', shortLabel: 'Fotos', icon: <Split className="w-4 h-4" /> },
     { id: 'profile', label: 'Perfil & Metas', shortLabel: 'Perfil', icon: <User className="w-4 h-4" /> },
@@ -127,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-500/30 text-rose-300 text-xs font-bold transition-all cursor-pointer"
                   title="Zerar todos os dados e voltar para a tela inicial"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
                   <span>Zerar</span>
                 </button>
               )}
@@ -154,13 +157,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => handleSelectTab(tab.id)}
-                  className={`flex items-center gap-2 px-3.5 xl:px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all whitespace-nowrap cursor-pointer ${
+                  className={`group flex items-center gap-2 px-3.5 xl:px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/25 scale-[1.02]'
                       : 'text-slate-300 hover:text-white hover:bg-[#122247]'
                   }`}
                 >
-                  <span className={isActive ? 'text-slate-950' : 'text-slate-400 group-hover:text-amber-400'}>
+                  <span className={isActive ? 'text-slate-950' : 'text-amber-400 group-hover:text-amber-300 transition-colors'}>
                     {tab.icon}
                   </span>
                   <span>{tab.label}</span>
@@ -170,21 +173,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
         </div>
 
-        {/* Mobile / Tablet 4x2 Navigation Grid */}
-        <div className="grid lg:hidden grid-cols-4 gap-1.5 py-2 px-3 border-t border-[#0d1833]">
+        {/* Mobile / Tablet 3x3 Navigation Grid */}
+        <div className="grid lg:hidden grid-cols-3 gap-1.5 py-2 px-3 border-t border-[#0d1833]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => handleSelectTab(tab.id)}
-                className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`group flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   isActive
                     ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/20'
                     : 'bg-[#091329] text-slate-300 hover:text-white hover:bg-[#122247] border border-[#17284f]/60'
                 }`}
               >
-                <span className="scale-95 mb-0.5">{tab.icon}</span>
+                <span className={`scale-95 mb-0.5 ${isActive ? 'text-slate-950' : 'text-amber-400 group-hover:text-amber-300 transition-colors'}`}>
+                  {tab.icon}
+                </span>
                 <span className="truncate max-w-full leading-tight">{tab.shortLabel}</span>
               </button>
             );
@@ -216,13 +221,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     key={tab.id}
                     onClick={() => handleSelectTab(tab.id)}
-                    className={`flex items-center gap-2.5 p-3 rounded-2xl text-left text-xs font-bold transition-all cursor-pointer ${
+                    className={`group flex items-center gap-2.5 p-3 rounded-2xl text-left text-xs font-bold transition-all cursor-pointer ${
                       isActive
                         ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-md'
                         : 'bg-[#060c19] text-slate-200 hover:bg-[#122247] border border-[#17284f]'
                     }`}
                   >
-                    <span className="shrink-0">{tab.icon}</span>
+                    <span className={`shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400 group-hover:text-amber-300 transition-colors'}`}>
+                      {tab.icon}
+                    </span>
                     <span className="truncate">{tab.label}</span>
                   </button>
                 );

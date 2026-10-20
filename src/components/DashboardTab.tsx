@@ -24,7 +24,10 @@ import {
   Loader2,
   RefreshCw,
   CheckSquare,
+  Activity,
 } from 'lucide-react';
+
+import { TabType } from './Navbar';
 
 interface DashboardTabProps {
   profile: UserProfile;
@@ -33,7 +36,7 @@ interface DashboardTabProps {
   weightLogs: WeightLog[];
   coachFeedback: AICoachFeedback;
   habits?: HabitItem[];
-  onNavigateTab: (tab: 'dashboard' | 'nutrition' | 'hydration' | 'workouts' | 'habits' | 'charts' | 'photos' | 'profile') => void;
+  onNavigateTab: (tab: TabType) => void;
   onOpenSetGoalModal: () => void;
   onUpdateCoachFeedback: (feedback: AICoachFeedback) => void;
 }
@@ -460,6 +463,35 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             "{coachFeedback.motivacao}"
           </div>
         </div>
+      </div>
+
+      {/* Running Coach & GPX Telemetry Banner */}
+      <div className="bg-gradient-to-r from-[#071126] via-[#0b193d] to-[#08122c] border border-amber-500/30 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-amber-500/20 shrink-0">
+            <Activity className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+              NOVIDADE • TREINADOR RUNNA & TELEMETRIA GPX
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-white">
+              Corrida de Rua: Do Zero aos 5k, Retorno Seguro & Performance
+            </h3>
+            <p className="text-xs text-slate-300 max-w-xl">
+              Planilhas adaptativas com método caminhada-corrida, intervalômetro por voz em tempo real,
+              fortalecimento foot core, controle de carga ACWR e importador Strava GPX.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigateTab('running')}
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md hover:brightness-110 transition-all cursor-pointer shrink-0"
+        >
+          <span>Abrir Treinador de Corrida</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
