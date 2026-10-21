@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const tabs: Array<{ id: TabType; label: string; shortLabel: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', shortLabel: 'Painel', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'feed', label: 'Feed de Atividades', shortLabel: 'Feed', icon: <Flame className="w-4 h-4" /> },
+    { id: 'feed', label: 'Feed', shortLabel: 'Feed', icon: <Flame className="w-4 h-4" /> },
     { id: 'workouts', label: 'Treinos', shortLabel: 'Treinos', icon: <Dumbbell className="w-4 h-4" /> },
     { id: 'running', label: 'Corrida de Rua', shortLabel: 'Corrida', icon: <Activity className="w-4 h-4" /> },
     { id: 'nutrition', label: 'Nutrição', shortLabel: 'Nutrição', icon: <Utensils className="w-4 h-4" /> },
@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'habits', label: 'Hábitos', shortLabel: 'Hábitos', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'charts', label: 'Evolução', shortLabel: 'Evolução', icon: <LineChart className="w-4 h-4" /> },
     { id: 'photos', label: 'Antes & Depois', shortLabel: 'Fotos', icon: <Split className="w-4 h-4" /> },
-    { id: 'profile', label: 'Perfil & Metas', shortLabel: 'Perfil', icon: <User className="w-4 h-4" /> },
+    { id: 'profile', label: 'Perfil', shortLabel: 'Perfil', icon: <User className="w-4 h-4" /> },
   ];
 
   const handleSelectTab = (tabId: TabType) => {
