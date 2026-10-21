@@ -55,12 +55,26 @@ import { ProgressChartsTab } from './components/ProgressChartsTab';
 import { PhotoCompareTab } from './components/PhotoCompareTab';
 import { ProfileGoalTab } from './components/ProfileGoalTab';
 import { RunningTab } from './components/RunningTab';
+import { FeedTab } from './components/FeedTab';
+import { FeedPost } from './types/feed';
+import { GPXActivity } from './types/running';
+import {
+  getStoredFeedPosts,
+  saveStoredFeedPosts,
+  syncFeedWithActivities,
+  buildWorkoutFeedPost,
+  buildRunningFeedPost,
+  togglePostKudos,
+  deletePostFromFeed,
+  updatePostDetails,
+} from './utils/feedStorage';
+import { loadStoredRuns } from './utils/storage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { SetGoalModal } from './components/SetGoalModal';
 import { FoodCalculatorModal } from './components/FoodCalculatorModal';
 import { DataBackupModal } from './components/DataBackupModal';
 import { AliyahBackupPayload } from './utils/backup';
-import { RotateCcw, ArrowUp, Database } from 'lucide-react';
+import { RotateCcw, ArrowUp, Database, Flame } from 'lucide-react';
 
 export default function App() {
   const [profile, setProfile] = useState<UserProfile>(getStoredProfile);
@@ -80,6 +94,15 @@ export default function App() {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
   const [onboardingKey, setOnboardingKey] = useState<number>(1);
   const [resetToastMessage, setResetToastMessage] = useState<string | null>(null);
+  const [feedToastNotice, setFeedToastNotice] = useState<string | null>(null);
+
+  const [feedPosts, setFeedPosts] = useState<FeedPost[]>(() => {
+    const stored = getStoredFeedPosts();
+    const existingWorkouts = getStoredWorkouts();
+    const existingRuns = loadStoredRuns();
+    const storedProfile = getStoredProfile();
+    return syncFeedWithActivities(stored, existingWorkouts, existingRuns, storedProfile.name);
+  });
 
   // Sync state changes to localStorage
   useEffect(() => {
@@ -169,10 +192,62 @@ export default function App() {
       }
       return [session, ...prev];
     });
+
+    // Automatically publish finished workout to Personal Feed
+    if (session.completed) {
+      const newPost = buildWorkoutFeedPost(session, profile.name || 'Atleta Aliyah');
+      setFeedPosts((prev) => {
+        const filtered = prev.filter((p) => p.id !== newPost.id);
+        const updated = [newPost, ...filtered];
+        saveStoredFeedPosts(updated);
+        return updated;
+      });
+      setFeedToastNotice('🔥 Treino concluído e publicado no seu Feed Pessoal!');
+      setTimeout(() => setFeedToastNotice(null), 4000);
+    }
   };
 
   const handleDeleteWorkout = (id: string) => {
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
+    setFeedPosts((prev) => {
+      const updated = prev.filter((p) => p.id !== `post-workout-${id}`);
+      saveStoredFeedPosts(updated);
+      return updated;
+    });
+  };
+
+  const handleSaveActivityToFeed = (activity: GPXActivity) => {
+    const newPost = buildRunningFeedPost(activity, profile.name || 'Atleta Aliyah');
+    setFeedPosts((prev) => {
+      const filtered = prev.filter((p) => p.id !== newPost.id);
+      const updated = [newPost, ...filtered];
+      saveStoredFeedPosts(updated);
+      return updated;
+    });
+    setFeedToastNotice('🏃 Corrida GPX publicada no seu Feed Pessoal com sucesso!');
+    setTimeout(() => setFeedToastNotice(null), 4000);
+  };
+
+  const handleToggleFeedKudos = (postId: string) => {
+    setFeedPosts((prev) => togglePostKudos(prev, postId));
+  };
+
+  const handleDeleteFeedPost = (postId: string) => {
+    setFeedPosts((prev) => deletePostFromFeed(prev, postId));
+  };
+
+  const handleUpdateFeedPost = (postId: string, title: string, note?: string) => {
+    setFeedPosts((prev) => updatePostDetails(prev, postId, title, note));
+  };
+
+  const handleAddManualFeedPost = (newPost: FeedPost) => {
+    setFeedPosts((prev) => {
+      const updated = [newPost, ...prev];
+      saveStoredFeedPosts(updated);
+      return updated;
+    });
+    setFeedToastNotice('🔥 Atividade publicada no seu Feed com sucesso!');
+    setTimeout(() => setFeedToastNotice(null), 4000);
   };
 
   const handleAddFood = (newItem: Omit<FoodLogItem, 'id' | 'createdAt'>) => {
@@ -311,6 +386,7 @@ export default function App() {
     setPhotos(INITIAL_PROGRESS_PHOTOS);
     setCoachFeedback(DEFAULT_COACH_FEEDBACK);
     setHabits(INITIAL_HABITS);
+    setFeedPosts([]);
 
     // 3. Close confirmation modal
     setIsResetModalOpen(false);
@@ -352,6 +428,23 @@ export default function App() {
         targetDays={profile.targetDays}
       />
 
+      {/* Floating Feed Toast Notification */}
+      {feedToastNotice && (
+        <div className="fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-[#091530] border border-amber-500/40 text-amber-300 text-xs font-bold shadow-2xl shadow-amber-500/15 animate-in slide-in-from-top-4 duration-300">
+          <Flame className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
+          <span>{feedToastNotice}</span>
+          <button
+            onClick={() => {
+              setActiveTab('feed');
+              setFeedToastNotice(null);
+            }}
+            className="ml-2 px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-white hover:text-amber-300 transition-all cursor-pointer font-bold"
+          >
+            Ver Feed
+          </button>
+        </div>
+      )}
+
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-8 lg:pb-10">
         {activeTab === 'dashboard' && (
@@ -365,6 +458,19 @@ export default function App() {
             onNavigateTab={setActiveTab}
             onOpenSetGoalModal={() => setIsSetGoalModalOpen(true)}
             onUpdateCoachFeedback={setCoachFeedback}
+          />
+        )}
+
+        {activeTab === 'feed' && (
+          <FeedTab
+            posts={feedPosts}
+            userName={profile.name || 'Atleta Aliyah'}
+            onToggleKudos={handleToggleFeedKudos}
+            onDeletePost={handleDeleteFeedPost}
+            onUpdatePost={handleUpdateFeedPost}
+            onAddManualPost={handleAddManualFeedPost}
+            onNavigateToWorkouts={() => setActiveTab('workouts')}
+            onNavigateToRunning={() => setActiveTab('running')}
           />
         )}
 
@@ -398,7 +504,11 @@ export default function App() {
         )}
 
         {activeTab === 'running' && (
-          <RunningTab profile={profile} />
+          <RunningTab
+            profile={profile}
+            onPostSavedRunToFeed={handleSaveActivityToFeed}
+            onNavigateToFeed={() => setActiveTab('feed')}
+          />
         )}
 
         {activeTab === 'habits' && (

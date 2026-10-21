@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
   RUNNA_PROFILE: 'fitmorph_runna_profile',
   RUNNA_PLAN: 'fitmorph_runna_plan',
   RUNNA_READINESS: 'fitmorph_runna_readiness',
+  FEED_POSTS: 'fitmorph_feed_posts',
 };
 
 export function getTodayDateStr(): string {

@@ -35,11 +35,17 @@ import { RunnaCoachTab } from './RunnaCoachTab';
 
 interface RunningTabProps {
   profile: UserProfile;
+  onPostSavedRunToFeed?: (activity: GPXActivity) => void;
+  onNavigateToFeed?: () => void;
 }
 
 type SubTab = 'overview' | 'splits' | 'hr_zones' | 'best_efforts' | 'raw_data';
 
-export const RunningTab: React.FC<RunningTabProps> = ({ profile }) => {
+export const RunningTab: React.FC<RunningTabProps> = ({
+  profile,
+  onPostSavedRunToFeed,
+  onNavigateToFeed,
+}) => {
   const [runningMode, setRunningMode] = useState<'runna_coach' | 'gpx_analyzer'>('runna_coach');
   const [activity, setActivity] = useState<GPXActivity | null>(null);
   const [savedRuns, setSavedRuns] = useState<GPXActivity[]>([]);
@@ -171,8 +177,12 @@ export const RunningTab: React.FC<RunningTabProps> = ({ profile }) => {
     setSavedRuns(updated);
     saveStoredRuns(updated);
 
-    setSaveSuccessNotice('Corrida salva no seu histórico com sucesso!');
-    setTimeout(() => setSaveSuccessNotice(null), 3500);
+    if (onPostSavedRunToFeed) {
+      onPostSavedRunToFeed(activity);
+    }
+
+    setSaveSuccessNotice('Corrida salva e publicada no seu Feed Pessoal com sucesso!');
+    setTimeout(() => setSaveSuccessNotice(null), 4000);
   };
 
   // Delete saved run

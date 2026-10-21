@@ -15,11 +15,13 @@ import {
   X,
   Database,
   Activity,
+  Flame,
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
 export type TabType =
   | 'dashboard'
+  | 'feed'
   | 'workouts'
   | 'running'
   | 'nutrition'
@@ -49,6 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const tabs: Array<{ id: TabType; label: string; shortLabel: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', shortLabel: 'Painel', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: 'feed', label: 'Feed de Atividades', shortLabel: 'Feed', icon: <Flame className="w-4 h-4" /> },
     { id: 'workouts', label: 'Treinos', shortLabel: 'Treinos', icon: <Dumbbell className="w-4 h-4" /> },
     { id: 'running', label: 'Corrida de Rua', shortLabel: 'Corrida', icon: <Activity className="w-4 h-4" /> },
     { id: 'nutrition', label: 'Nutrição', shortLabel: 'Nutrição', icon: <Utensils className="w-4 h-4" /> },
@@ -331,7 +334,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            ['running', 'habits', 'charts', 'photos', 'profile'].includes(activeTab)
+            ['feed', 'running', 'habits', 'charts', 'photos', 'profile'].includes(activeTab)
               ? 'text-amber-400 scale-105'
               : 'text-slate-400 hover:text-slate-200'
           }`}
