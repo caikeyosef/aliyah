@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { FeedPost, FeedFilterType } from '../types/feed';
 import { FeedCard } from './FeedCard';
+import { StoryShareModal } from './StoryShareModal';
 import {
   Flame,
   Activity,
@@ -40,6 +41,7 @@ export const FeedTab: React.FC<FeedTabProps> = ({
   const [filter, setFilter] = useState<FeedFilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [selectedStoryPost, setSelectedStoryPost] = useState<FeedPost | null>(null);
 
   // Manual Post State
   const [manualTitle, setManualTitle] = useState('');
@@ -325,6 +327,7 @@ export const FeedTab: React.FC<FeedTabProps> = ({
               onToggleKudos={onToggleKudos}
               onDeletePost={onDeletePost}
               onUpdatePost={onUpdatePost}
+              onOpenStoryShare={(p) => setSelectedStoryPost(p)}
             />
           ))
         ) : (
@@ -534,6 +537,13 @@ export const FeedTab: React.FC<FeedTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Instagram Story Share Modal */}
+      <StoryShareModal
+        post={selectedStoryPost}
+        isOpen={!!selectedStoryPost}
+        onClose={() => setSelectedStoryPost(null)}
+      />
     </div>
   );
 };

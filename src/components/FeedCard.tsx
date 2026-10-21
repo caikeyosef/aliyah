@@ -18,6 +18,7 @@ import {
   Check,
   Edit2,
   MessageSquare,
+  Copy,
 } from 'lucide-react';
 
 interface FeedCardProps {
@@ -25,6 +26,7 @@ interface FeedCardProps {
   onToggleKudos: (postId: string) => void;
   onDeletePost: (postId: string) => void;
   onUpdatePost: (postId: string, title: string, note?: string) => void;
+  onOpenStoryShare: (post: FeedPost) => void;
 }
 
 export const FeedCard: React.FC<FeedCardProps> = ({
@@ -32,6 +34,7 @@ export const FeedCard: React.FC<FeedCardProps> = ({
   onToggleKudos,
   onDeletePost,
   onUpdatePost,
+  onOpenStoryShare,
 }) => {
   const [showSplits, setShowSplits] = useState(false);
   const [showAllExercises, setShowAllExercises] = useState(false);
@@ -187,7 +190,19 @@ export const FeedCard: React.FC<FeedCardProps> = ({
           </button>
 
           {isMenuOpen && (
-            <div className="absolute right-0 top-10 w-44 bg-[#081228] border border-[#1b3160] rounded-2xl p-1.5 shadow-2xl z-20 space-y-1">
+            <div className="absolute right-0 top-10 w-52 bg-[#081228] border border-[#1b3160] rounded-2xl p-1.5 shadow-2xl z-20 space-y-1">
+              <button
+                onClick={() => {
+                  onOpenStoryShare(post);
+                  setIsMenuOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-white hover:bg-gradient-to-r hover:from-pink-600/25 hover:to-orange-500/25 flex items-center gap-2 cursor-pointer border-b border-[#14264f]/60"
+              >
+                <div className="w-4 h-4 rounded bg-gradient-to-tr from-[#f09433] via-[#bc1888] to-[#cc2366] flex items-center justify-center text-[10px] text-white">
+                  📸
+                </div>
+                <span>Stories do Instagram</span>
+              </button>
               <button
                 onClick={() => {
                   setIsEditing(true);
@@ -206,7 +221,7 @@ export const FeedCard: React.FC<FeedCardProps> = ({
                 className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#122349] flex items-center gap-2 cursor-pointer"
               >
                 <Share2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Compartilhar</span>
+                <span>Copiar Resumo em Texto</span>
               </button>
               <button
                 onClick={() => {
@@ -624,14 +639,29 @@ export const FeedCard: React.FC<FeedCardProps> = ({
             </span>
           </button>
 
-          {/* Quick Share Button */}
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0a152e] hover:bg-[#12244d] text-slate-300 hover:text-white border border-[#152a55] text-xs font-semibold transition-all cursor-pointer"
-          >
-            {copiedToast ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-amber-400" />}
-            <span>{copiedToast ? 'Copiado!' : 'Compartilhar'}</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* Stories Button (Instagram) */}
+            <button
+              onClick={() => onOpenStoryShare(post)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#f09433]/25 via-[#bc1888]/25 to-[#cc2366]/25 hover:from-[#f09433]/40 hover:via-[#bc1888]/40 hover:to-[#cc2366]/40 text-pink-200 hover:text-white border border-pink-500/40 text-xs font-bold transition-all cursor-pointer shadow-sm shadow-pink-500/10"
+              title="Compartilhar no Instagram Stories"
+            >
+              <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#f09433] via-[#bc1888] to-[#cc2366] flex items-center justify-center text-[9px] text-white shrink-0">
+                <Share2 className="w-2.5 h-2.5" />
+              </div>
+              <span>Stories</span>
+            </button>
+
+            {/* Quick Share / Copy Text Button */}
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#0a152e] hover:bg-[#12244d] text-slate-300 hover:text-white border border-[#152a55] text-xs font-semibold transition-all cursor-pointer"
+              title="Copiar texto da atividade"
+            >
+              {copiedToast ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
+              <span className="hidden sm:inline">{copiedToast ? 'Copiado!' : 'Texto'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Existing Local Comments / Notes */}
