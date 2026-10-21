@@ -324,14 +324,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Droplet className="w-5 h-5 mb-0.5 text-amber-300" />
+          <Droplet className="w-5 h-5 mb-0.5" />
           <span>Água</span>
         </button>
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            ['habits', 'charts', 'photos', 'profile'].includes(activeTab)
+            ['running', 'habits', 'charts', 'photos', 'profile'].includes(activeTab)
               ? 'text-amber-400 scale-105'
               : 'text-slate-400 hover:text-slate-200'
           }`}
