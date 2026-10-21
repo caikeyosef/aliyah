@@ -110,12 +110,8 @@
   padding-right: env(safe-area-inset-right, 0px);
 }
 
-/* Custom dark mode for OpenStreetMap tiles without any third-party API key */
-.map-dark-theme .leaflet-tile {
-  filter: brightness(0.62) invert(1) contrast(1.7) hue-rotate(200deg) saturate(0.35);
-}
-
-.map-dark-theme .leaflet-container {
+/* Dark theme styling for Leaflet Map */
+.leaflet-container {
   background-color: #060c19 !important;
 }
 

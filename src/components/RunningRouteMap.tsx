@@ -1,15 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GPXActivity } from '../types/running';
-import { Layers, Maximize2, Minimize2, Navigation, Compass } from 'lucide-react';
+import { Maximize2, Minimize2, Navigation, Compass } from 'lucide-react';
 
 interface RunningRouteMapProps {
   activity: GPXActivity;
   hoveredPointIndex: number | null;
   onPointHover?: (index: number | null) => void;
 }
-
-type MapLayerType = 'dark' | 'streets' | 'satellite';
 
 export const RunningRouteMap: React.FC<RunningRouteMapProps> = ({
   activity,
@@ -20,9 +18,7 @@ export const RunningRouteMap: React.FC<RunningRouteMapProps> = ({
   const hoverMarkerRef = useRef<L.Marker | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
   const glowLineRef = useRef<L.Polyline | null>(null);
-  const tileLayersRef = useRef<{ streets: L.TileLayer; satellite: L.TileLayer } | null>(null);
 
-  const [mapTheme, setMapTheme] = useState<MapLayerType>('dark');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Initialize Leaflet Map
@@ -33,7 +29,6 @@ export const RunningRouteMap: React.FC<RunningRouteMapProps> = ({
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
-      tileLayersRef.current = null;
     }
 
     const { points, bounds } = activity;
@@ -51,36 +46,17 @@ export const RunningRouteMap: React.FC<RunningRouteMapProps> = ({
     // Add Zoom Control top-right
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 100% Free, Reliable, No-Key Tile Providers (Esri World Street & World Imagery)
-    const streetTile = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    // High-performance, high-contrast dark tiles for sports routes
+    const darkTileLayer = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
       {
+        subdomains: 'abcd',
         maxZoom: 19,
         pane: 'tilePane',
       }
     );
-
-    const satelliteTile = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        pane: 'tilePane',
-      }
-    );
-
-    tileLayersRef.current = {
-      streets: streetTile,
-      satellite: satelliteTile,
-    };
-
-    // Add initial tile layer
-    if (mapTheme === 'satellite') {
-      satelliteTile.addTo(map);
-      satelliteTile.bringToBack();
-    } else {
-      streetTile.addTo(map);
-      streetTile.bringToBack();
-    }
+    darkTileLayer.addTo(map);
+    darkTileLayer.bringToBack();
 
     // LatLng array
     const latLngs: L.LatLngExpression[] = points.map((p) => [p.lat, p.lon]);
@@ -231,44 +207,8 @@ export const RunningRouteMap: React.FC<RunningRouteMapProps> = ({
       polyline.remove();
       map.remove();
       mapInstanceRef.current = null;
-      tileLayersRef.current = null;
     };
   }, [activity]);
-
-  // Handle Map Theme change seamlessly without tearing down or breaking map
-  const handleSelectTheme = (theme: MapLayerType) => {
-    setMapTheme(theme);
-
-    const map = mapInstanceRef.current;
-    const tileLayers = tileLayersRef.current;
-    if (!map || !tileLayers) return;
-
-    const { streets, satellite } = tileLayers;
-
-    if (theme === 'satellite') {
-      if (map.hasLayer(streets)) {
-        map.removeLayer(streets);
-      }
-      if (!map.hasLayer(satellite)) {
-        map.addLayer(satellite);
-      }
-      satellite.bringToBack();
-    } else {
-      // 'dark' or 'streets' both use the crisp street tiles (dark has CSS filter applied to container)
-      if (map.hasLayer(satellite)) {
-        map.removeLayer(satellite);
-      }
-      if (!map.hasLayer(streets)) {
-        map.addLayer(streets);
-      }
-      streets.bringToBack();
-    }
-
-    // Invalidate size immediately so tiles render with 0 delay
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 50);
-  };
 
   // Sync hover point with scrubber marker
   useEffect(() => {
@@ -315,58 +255,18 @@ export const RunningRouteMap: React.FC<RunningRouteMapProps> = ({
         isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen w-screen' : 'h-[360px] sm:h-[450px]'
       }`}
     >
-      {/* Map container with dynamic class for CSS dark theme filter */}
+      {/* Map container */}
       <div
         ref={mapContainerRef}
-        className={`w-full h-full z-10 transition-all ${mapTheme === 'dark' ? 'map-dark-theme' : ''}`}
+        className="w-full h-full z-10"
       />
 
       {/* Floating Map Controls Bar */}
-      <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 bg-[#050a18]/92 backdrop-blur-md p-1 rounded-xl border border-[#1a2d56] shadow-xl">
-        {/* Dark Mode */}
-        <button
-          type="button"
-          onClick={() => handleSelectTheme('dark')}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            mapTheme === 'dark'
-              ? 'bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
-              : 'text-slate-300 hover:text-white hover:bg-[#122247]'
-          }`}
-          title="Modo Noturno (Escuro)"
-        >
-          <Layers className="w-3.5 h-3.5 text-amber-400" />
-          <span>Noturno</span>
-        </button>
-
-        {/* Streets Mode */}
-        <button
-          type="button"
-          onClick={() => handleSelectTheme('streets')}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            mapTheme === 'streets'
-              ? 'bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
-              : 'text-slate-300 hover:text-white hover:bg-[#122247]'
-          }`}
-          title="Modo Ruas Claras (Cartografia Urbana)"
-        >
-          <Compass className="w-3.5 h-3.5 text-sky-400" />
-          <span>Ruas</span>
-        </button>
-
-        {/* Satellite Mode */}
-        <button
-          type="button"
-          onClick={() => handleSelectTheme('satellite')}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            mapTheme === 'satellite'
-              ? 'bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
-              : 'text-slate-300 hover:text-white hover:bg-[#122247]'
-          }`}
-          title="Modo Satélite Real (Alta Resolução)"
-        >
-          <span className="text-emerald-400 text-xs">🛰️</span>
-          <span>Satélite</span>
-        </button>
+      <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 bg-[#050a18]/92 backdrop-blur-md px-2 py-1.5 rounded-xl border border-[#1a2d56] shadow-xl">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold text-amber-300">
+          <Compass className="w-3.5 h-3.5 text-amber-400" />
+          <span>Trajeto GPX</span>
+        </div>
 
         <div className="h-4 w-[1px] bg-[#1a2d56] mx-0.5" />
 
