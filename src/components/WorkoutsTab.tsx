@@ -68,6 +68,43 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [tempExSets, setTempExSets] = useState(3);
   const [tempExReps, setTempExReps] = useState('8-12 reps');
 
+  // Exercise editing inside Ficha modal
+  const [editingExId, setEditingExId] = useState<string | null>(null);
+  const [editExName, setEditExName] = useState('');
+  const [editExGroup, setEditExGroup] = useState<WorkoutTemplateExercise['muscleGroup']>('peito');
+  const [editExSets, setEditExSets] = useState(3);
+  const [editExReps, setEditExReps] = useState('8-12 reps');
+  const [editExWeight, setEditExWeight] = useState<number | ''>('');
+
+  // Direct Quick Edit / Add Exercise directly on Ficha Cards
+  const [quickEditModal, setQuickEditModal] = useState<{
+    templateId: string;
+    templateName: string;
+    exercise: WorkoutTemplateExercise;
+    isNew?: boolean;
+  } | null>(null);
+  const [quickExName, setQuickExName] = useState('');
+  const [quickExGroup, setQuickExGroup] = useState<WorkoutTemplateExercise['muscleGroup']>('peito');
+  const [quickExSets, setQuickExSets] = useState(3);
+  const [quickExReps, setQuickExReps] = useState('8-12 reps');
+  const [quickExWeight, setQuickExWeight] = useState<number | ''>('');
+  const [quickEditFeedback, setQuickEditFeedback] = useState<string | null>(null);
+
+  // Expanded ficha exercises view
+  const [expandedFichaIds, setExpandedFichaIds] = useState<Record<string, boolean>>({});
+
+  const toggleExpandFicha = (id: string) => {
+    setExpandedFichaIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  // Exercise editing inside active live session
+  const [editingLiveExId, setEditingLiveExId] = useState<string | null>(null);
+  const [editLiveExName, setEditLiveExName] = useState('');
+  const [editLiveExReps, setEditLiveExReps] = useState('');
+
   // Active workout session
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
@@ -116,6 +153,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   // Open modal to create a new ficha
   const handleOpenCreateTemplate = () => {
     setEditingTemplateId(null);
+    setEditingExId(null);
     setTemplateName('');
     setTemplateFocus('');
     setTemplateExercises([]);
@@ -125,6 +163,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   // Open modal to edit existing ficha
   const handleOpenEditTemplate = (tmpl: WorkoutTemplate) => {
     setEditingTemplateId(tmpl.id);
+    setEditingExId(null);
     setTemplateName(tmpl.name);
     setTemplateFocus(tmpl.muscleFocus || '');
     setTemplateExercises([...tmpl.exercises]);
@@ -147,7 +186,182 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
     setTempExReps('8-12 reps');
   };
 
+  // Start editing an exercise in the template draft
+  const handleStartEditExercise = (ex: WorkoutTemplateExercise) => {
+    setEditingExId(ex.id);
+    setEditExName(ex.name);
+    setEditExGroup(ex.muscleGroup);
+    setEditExSets(ex.defaultSets || 3);
+    setEditExReps(ex.targetReps || '8-12 reps');
+    setEditExWeight(ex.lastWeightKg !== undefined && ex.lastWeightKg > 0 ? ex.lastWeightKg : '');
+  };
+
+  // Save edited exercise in template draft
+  const handleSaveEditExercise = () => {
+    if (!editingExId || !editExName.trim()) return;
+    setTemplateExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === editingExId
+          ? {
+              ...ex,
+              name: editExName.trim(),
+              muscleGroup: editExGroup,
+              defaultSets: Math.max(1, Number(editExSets) || 3),
+              targetReps: editExReps.trim() || '8-12 reps',
+              lastWeightKg: editExWeight === '' ? 0 : Number(editExWeight),
+            }
+          : ex
+      )
+    );
+    setEditingExId(null);
+  };
+
+  const handleCancelEditExercise = () => {
+    setEditingExId(null);
+  };
+
+  // Open modal to quick edit an exercise from a Ficha card
+  const handleOpenQuickEditExercise = (
+    tmpl: WorkoutTemplate,
+    ex: WorkoutTemplateExercise
+  ) => {
+    setQuickEditModal({
+      templateId: tmpl.id,
+      templateName: tmpl.name,
+      exercise: ex,
+      isNew: false,
+    });
+    setQuickExName(ex.name);
+    setQuickExGroup(ex.muscleGroup);
+    setQuickExSets(ex.defaultSets || 3);
+    setQuickExReps(ex.targetReps || '8-12 reps');
+    setQuickExWeight(ex.lastWeightKg !== undefined && ex.lastWeightKg > 0 ? ex.lastWeightKg : '');
+  };
+
+  // Open modal to quick add a new exercise directly to an existing Ficha
+  const handleOpenAddExerciseToExistingTemplate = (tmpl: WorkoutTemplate) => {
+    const focus = tmpl.muscleFocus?.toLowerCase() || '';
+    let initialGroup: WorkoutTemplateExercise['muscleGroup'] = 'peito';
+    if (focus.includes('costa') || focus.includes('dorsal')) initialGroup = 'costas';
+    else if (focus.includes('perna') || focus.includes('quadríceps') || focus.includes('posterior')) initialGroup = 'pernas';
+    else if (focus.includes('ombro') || focus.includes('deltoide')) initialGroup = 'ombros';
+    else if (focus.includes('braço') || focus.includes('bíceps') || focus.includes('tríceps')) initialGroup = 'bracos';
+    else if (focus.includes('abd') || focus.includes('core')) initialGroup = 'abdomen';
+
+    const newEx: WorkoutTemplateExercise = {
+      id: 'te-' + Date.now(),
+      name: '',
+      muscleGroup: initialGroup,
+      defaultSets: 3,
+      targetReps: '8-12 reps',
+      lastWeightKg: 0,
+    };
+
+    setQuickEditModal({
+      templateId: tmpl.id,
+      templateName: tmpl.name,
+      exercise: newEx,
+      isNew: true,
+    });
+    setQuickExName('');
+    setQuickExGroup(initialGroup);
+    setQuickExSets(3);
+    setQuickExReps('8-12 reps');
+    setQuickExWeight('');
+  };
+
+  // Save quick edited/added exercise directly to Ficha
+  const handleSaveQuickEditExercise = () => {
+    if (!quickEditModal || !quickExName.trim()) return;
+    const targetTemplate = workoutTemplates.find((t) => t.id === quickEditModal.templateId);
+    if (!targetTemplate) return;
+
+    let updatedExercises: WorkoutTemplateExercise[];
+    if (quickEditModal.isNew) {
+      const newExItem: WorkoutTemplateExercise = {
+        id: quickEditModal.exercise.id || 'te-' + Date.now(),
+        name: quickExName.trim(),
+        muscleGroup: quickExGroup,
+        defaultSets: Math.max(1, Number(quickExSets) || 3),
+        targetReps: quickExReps.trim() || '8-12 reps',
+        lastWeightKg: quickExWeight === '' ? 0 : Number(quickExWeight),
+      };
+      updatedExercises = [...targetTemplate.exercises, newExItem];
+    } else {
+      updatedExercises = targetTemplate.exercises.map((ex) => {
+        if (ex.id === quickEditModal.exercise.id) {
+          return {
+            ...ex,
+            name: quickExName.trim(),
+            muscleGroup: quickExGroup,
+            defaultSets: Math.max(1, Number(quickExSets) || 3),
+            targetReps: quickExReps.trim() || '8-12 reps',
+            lastWeightKg: quickExWeight === '' ? 0 : Number(quickExWeight),
+          };
+        }
+        return ex;
+      });
+    }
+
+    const updatedTemplate: WorkoutTemplate = {
+      ...targetTemplate,
+      exercises: updatedExercises,
+    };
+
+    onSaveWorkoutTemplate(updatedTemplate);
+    const actionText = quickEditModal.isNew ? 'adicionado à' : 'atualizado na';
+    setQuickEditFeedback(`Exercício "${quickExName.trim()}" ${actionText} ficha "${targetTemplate.name}"!`);
+    setTimeout(() => setQuickEditFeedback(null), 3500);
+    setQuickEditModal(null);
+  };
+
+  // Delete exercise directly from Ficha via Quick Edit Modal
+  const handleDeleteQuickEditExercise = () => {
+    if (!quickEditModal) return;
+    const targetTemplate = workoutTemplates.find((t) => t.id === quickEditModal.templateId);
+    if (!targetTemplate) return;
+
+    const updatedExercises = targetTemplate.exercises.filter(
+      (ex) => ex.id !== quickEditModal.exercise.id
+    );
+
+    const updatedTemplate: WorkoutTemplate = {
+      ...targetTemplate,
+      exercises: updatedExercises,
+    };
+
+    onSaveWorkoutTemplate(updatedTemplate);
+    setQuickEditFeedback(`Exercício removido da ficha "${targetTemplate.name}"!`);
+    setTimeout(() => setQuickEditFeedback(null), 3500);
+    setQuickEditModal(null);
+  };
+
+  // Live workout exercise editing
+  const handleStartEditLiveExercise = (ex: WorkoutExercise) => {
+    setEditingLiveExId(ex.id);
+    setEditLiveExName(ex.name);
+    setEditLiveExReps(ex.targetReps || '');
+  };
+
+  const handleSaveEditLiveExercise = () => {
+    if (!editingLiveExId || !editLiveExName.trim() || !activeSession) return;
+    setActiveSession({
+      ...activeSession,
+      exercises: activeSession.exercises.map((ex) =>
+        ex.id === editingLiveExId
+          ? {
+              ...ex,
+              name: editLiveExName.trim(),
+              targetReps: editLiveExReps.trim() || undefined,
+            }
+          : ex
+      ),
+    });
+    setEditingLiveExId(null);
+  };
+
   const handleRemoveExerciseFromTemplate = (id: string) => {
+    if (editingExId === id) setEditingExId(null);
     setTemplateExercises(templateExercises.filter((e) => e.id !== id));
   };
 
@@ -626,14 +840,57 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                         {exIndex + 1}
                       </span>
                       <div>
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          {ex.name}
-                          {ex.pr && ex.pr > 0 ? (
-                            <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono flex items-center gap-1">
-                              <Trophy className="w-3 h-3" /> PR: {ex.pr}kg
-                            </span>
-                          ) : null}
-                        </h4>
+                        {editingLiveExId === ex.id ? (
+                          <div className="flex flex-wrap items-center gap-2 py-1">
+                            <input
+                              type="text"
+                              value={editLiveExName}
+                              onChange={(e) => setEditLiveExName(e.target.value)}
+                              className="px-2.5 py-1 bg-[#060c19] border border-amber-400 rounded-lg text-white font-bold text-xs focus:outline-none"
+                              placeholder="Nome do exercício"
+                            />
+                            <input
+                              type="text"
+                              value={editLiveExReps}
+                              onChange={(e) => setEditLiveExReps(e.target.value)}
+                              className="px-2 py-1 bg-[#060c19] border border-[#1a2d56] rounded-lg text-white text-xs w-28 focus:outline-none focus:border-amber-400"
+                              placeholder="Meta (ex: 8-12)"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleSaveEditLiveExercise}
+                              className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                            >
+                              <Check className="w-3 h-3" /> Salvar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingLiveExId(null)}
+                              className="px-2 py-1 rounded-lg bg-[#122247] hover:bg-[#1a3264] text-slate-300 text-xs cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                              {ex.name}
+                              {ex.pr && ex.pr > 0 ? (
+                                <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono flex items-center gap-1">
+                                  <Trophy className="w-3 h-3" /> PR: {ex.pr}kg
+                                </span>
+                              ) : null}
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditLiveExercise(ex)}
+                              className="p-1 text-slate-400 hover:text-amber-400 rounded hover:bg-[#122247] transition-colors cursor-pointer"
+                              title="Editar nome ou meta deste exercício"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-[11px] text-slate-400">
                           <span className="capitalize">{ex.muscleGroup}</span>
                           {previousLoad > 0 && (
@@ -871,74 +1128,162 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
           {/* SUBVIEW 1: MINHAS FICHAS (starts clean, user creates them) */}
           {subView === 'fichas' && (
             <div className="space-y-4">
+              {/* Feedback toast for quick exercise updates */}
+              {quickEditFeedback && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{quickEditFeedback}</span>
+                  </div>
+                  <button
+                    onClick={() => setQuickEditFeedback(null)}
+                    className="p-1 rounded-lg text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-500/20 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               {workoutTemplates.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {workoutTemplates.map((tmpl) => (
-                    <div
-                      key={tmpl.id}
-                      className="bg-[#0a142c] border border-[#1a2d56] hover:border-amber-400/40 rounded-3xl p-5 flex flex-col justify-between transition-all space-y-4"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-amber-400 font-mono uppercase">
-                            {tmpl.muscleFocus || 'Ficha Personalizada'}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleOpenEditTemplate(tmpl)}
-                              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-[#122247]"
-                              title="Editar Ficha"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteWorkoutTemplate(tmpl.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-[#122247]"
-                              title="Excluir Ficha"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                  {workoutTemplates.map((tmpl) => {
+                    const isExpanded = !!expandedFichaIds[tmpl.id];
+                    const displayExercises = isExpanded
+                      ? tmpl.exercises
+                      : tmpl.exercises.slice(0, 4);
+
+                    return (
+                      <div
+                        key={tmpl.id}
+                        className="bg-[#0a142c] border border-[#1a2d56] hover:border-amber-400/40 rounded-3xl p-5 flex flex-col justify-between transition-all space-y-4"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-amber-400 font-mono uppercase">
+                              {tmpl.muscleFocus || 'Ficha Personalizada'}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenEditTemplate(tmpl)}
+                                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-[#122247] cursor-pointer"
+                                title="Editar Estrutura da Ficha"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteWorkoutTemplate(tmpl.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-[#122247] cursor-pointer"
+                                title="Excluir Ficha"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <h4 className="text-lg font-black text-white">{tmpl.name}</h4>
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {tmpl.exercises.length} exercícios cadastrados
+                          </div>
+
+                          {/* List of exercises inside this ficha with direct edit option */}
+                          <div className="mt-3 space-y-1.5 bg-[#060c19] p-2.5 rounded-2xl border border-[#17284f]">
+                            <div className="flex items-center justify-between px-1 pb-1 text-[11px] font-bold text-slate-400 border-b border-[#14264f]">
+                              <span>Exercícios ({tmpl.exercises.length})</span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAddExerciseToExistingTemplate(tmpl)}
+                                className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold transition-colors cursor-pointer text-[10px]"
+                                title="Adicionar exercício a esta ficha"
+                              >
+                                <Plus className="w-3 h-3" /> Adicionar
+                              </button>
+                            </div>
+
+                            {displayExercises.map((ex, idx) => {
+                              const latestRecorded = getLatestRecordedWeightForExercise(ex.name);
+                              return (
+                                <div
+                                  key={ex.id || idx}
+                                  className="group flex items-center justify-between text-xs py-1 px-1.5 rounded-xl hover:bg-[#122247]/60 transition-colors border border-transparent hover:border-[#1a3264]/40"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <span className="w-4 h-4 rounded-md bg-[#122247] text-amber-400 font-mono text-[9px] font-bold flex items-center justify-center shrink-0 border border-amber-500/20">
+                                      {idx + 1}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="truncate font-semibold text-slate-100 group-hover:text-amber-200 transition-colors">
+                                          {ex.name}
+                                        </span>
+                                        <span className="text-[9px] uppercase font-bold text-amber-400/80 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20 shrink-0">
+                                          {ex.muscleGroup}
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] text-slate-400 block">
+                                        {ex.defaultSets} séries • {ex.targetReps || '8-12 reps'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                    {latestRecorded > 0 ? (
+                                      <span
+                                        className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20"
+                                        title="Última carga registrada"
+                                      >
+                                        {latestRecorded} kg
+                                      </span>
+                                    ) : ex.lastWeightKg && ex.lastWeightKg > 0 ? (
+                                      <span className="text-[11px] font-mono text-amber-400 font-bold" title="Carga base">
+                                        {ex.lastWeightKg} kg
+                                      </span>
+                                    ) : null}
+
+                                    {/* Direct Edit Exercise Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenQuickEditExercise(tmpl, ex)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-[#182f61] transition-all cursor-pointer flex items-center gap-1 text-[11px] font-medium"
+                                      title="Editar este exercício (nome, repetições, séries, grupo)"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                      <span className="hidden sm:inline text-[10px]">Editar</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {tmpl.exercises.length > 4 && (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandFicha(tmpl.id)}
+                                className="w-full pt-1.5 pb-0.5 text-center text-[11px] text-amber-400/90 hover:text-amber-300 font-bold flex items-center justify-center gap-1 border-t border-[#14264f] mt-1 cursor-pointer transition-colors"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="w-3.5 h-3.5" /> Recolher lista
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-3.5 h-3.5" /> Ver todos os {tmpl.exercises.length} exercícios (+{tmpl.exercises.length - 4})
+                                  </>
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        <h4 className="text-lg font-black text-white">{tmpl.name}</h4>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {tmpl.exercises.length} exercícios cadastrados
-                        </div>
-
-                        {/* List of exercises inside this ficha */}
-                        <div className="mt-3 space-y-1.5 bg-[#060c19] p-3 rounded-2xl border border-[#17284f]">
-                          {tmpl.exercises.slice(0, 5).map((ex, idx) => {
-                            const latestRecorded = getLatestRecordedWeightForExercise(ex.name);
-                            return (
-                              <div
-                                key={idx}
-                                className="flex items-center justify-between text-xs text-slate-200"
-                              >
-                                <span className="truncate max-w-[180px]">{ex.name}</span>
-                                <span className="text-[11px] font-mono text-amber-400 font-bold">
-                                  {latestRecorded > 0 ? `${latestRecorded} kg` : ex.targetReps || '3x10'}
-                                </span>
-                              </div>
-                            );
-                          })}
-                          {tmpl.exercises.length > 5 && (
-                            <div className="text-[10px] text-slate-400 pt-1">
-                              + {tmpl.exercises.length - 5} outros exercícios...
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => handleStartFromTemplate(tmpl)}
+                          className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+                        >
+                          <Play className="w-4 h-4 fill-current" /> Treinar com Esta Ficha
+                        </button>
                       </div>
-
-                      <button
-                        onClick={() => handleStartFromTemplate(tmpl)}
-                        className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all"
-                      >
-                        <Play className="w-4 h-4 fill-current" /> Treinar com Esta Ficha
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="bg-[#0a142c] border border-dashed border-[#1a2d56] rounded-3xl p-10 text-center space-y-4">
@@ -1319,6 +1664,145 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                       const isDragging = draggedExerciseIndex === idx;
                       const isDragOver = dragOverExerciseIndex === idx && !isDragging;
 
+                      if (editingExId === ex.id) {
+                        return (
+                          <div
+                            key={ex.id}
+                            className="p-3 sm:p-4 rounded-2xl bg-[#081329] border-2 border-amber-400 shadow-xl space-y-3 animate-in fade-in duration-150"
+                          >
+                            <div className="flex items-center justify-between border-b border-[#14264f] pb-2">
+                              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                <Edit2 className="w-3.5 h-3.5 text-amber-400" /> Editando Exercício #{idx + 1}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={handleCancelEditExercise}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-[#122247] transition-colors cursor-pointer"
+                                title="Cancelar edição"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                                  Nome do Exercício *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editExName}
+                                  onChange={(e) => setEditExName(e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-[#050a18] border border-[#1a2d56] rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-amber-400"
+                                  placeholder="Nome do exercício"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                                  Grupo Muscular
+                                </label>
+                                <select
+                                  value={editExGroup}
+                                  onChange={(e) => setEditExGroup(e.target.value as any)}
+                                  className="w-full px-3 py-1.5 bg-[#050a18] border border-[#1a2d56] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
+                                >
+                                  <option value="peito">Peito</option>
+                                  <option value="costas">Costas</option>
+                                  <option value="pernas">Pernas</option>
+                                  <option value="ombros">Ombros</option>
+                                  <option value="bracos">Braços</option>
+                                  <option value="abdomen">Abdômen</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div>
+                                <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                                  Séries Padrão
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="15"
+                                  value={editExSets}
+                                  onChange={(e) => setEditExSets(Number(e.target.value))}
+                                  className="w-full px-3 py-1.5 bg-[#050a18] border border-[#1a2d56] rounded-xl text-white text-xs font-mono font-bold focus:outline-none focus:border-amber-400"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                                  Faixa de Repetições
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editExReps}
+                                  onChange={(e) => setEditExReps(e.target.value)}
+                                  placeholder="Ex: 8-12 reps, 4x10, etc."
+                                  className="w-full px-3 py-1.5 bg-[#050a18] border border-[#1a2d56] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                                  Carga Base (kg)
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  min="0"
+                                  value={editExWeight}
+                                  onChange={(e) =>
+                                    setEditExWeight(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))
+                                  }
+                                  placeholder="Opcional (ex: 20)"
+                                  className="w-full px-3 py-1.5 bg-[#050a18] border border-[#1a2d56] rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Quick Presets for Repetitions */}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              <span className="text-[10px] text-slate-400 font-medium mr-1">Sugestões:</span>
+                              {['8-12 reps', '10-12 reps', '4x10', '12-15 reps', '6-8 reps', 'Até a falha'].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setEditExReps(preset)}
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors cursor-pointer border ${
+                                    editExReps === preset
+                                      ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                                      : 'bg-[#0f1d3a] hover:bg-[#15274d] text-slate-300 border-[#1a2d56]'
+                                  }`}
+                                >
+                                  {preset}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#14264f]">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditExercise}
+                                className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveEditExercise}
+                                disabled={!editExName.trim()}
+                                className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50 transition-all cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" /> Salvar Exercício
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={ex.id}
@@ -1354,8 +1838,13 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                               {idx + 1}
                             </span>
                             <div className="min-w-0">
-                              <span className="font-semibold text-white truncate block">{ex.name}</span>
-                              <span className="text-slate-400 text-[11px]">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-semibold text-white truncate block">{ex.name}</span>
+                                <span className="text-[10px] uppercase font-bold text-amber-400/80 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                                  {ex.muscleGroup}
+                                </span>
+                              </div>
+                              <span className="text-slate-400 text-[11px] block mt-0.5">
                                 {ex.defaultSets} séries • {ex.targetReps}
                               </span>
                             </div>
@@ -1363,7 +1852,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
                           <div className="flex items-center gap-1 shrink-0">
                             {/* Quick Accessible Move Up/Down buttons */}
-                            <div className="flex items-center gap-0.5 mr-1">
+                            <div className="flex items-center gap-0.5 mr-0.5">
                               <button
                                 type="button"
                                 disabled={idx === 0}
@@ -1384,6 +1873,17 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                               </button>
                             </div>
 
+                            {/* Edit Exercise Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditExercise(ex)}
+                              className="text-slate-400 hover:text-amber-400 p-1.5 rounded-md hover:bg-[#122247] transition-colors cursor-pointer"
+                              title="Editar este exercício (nome, repetições, séries)"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Delete Exercise Button */}
                             <button
                               type="button"
                               onClick={() => handleRemoveExerciseFromTemplate(ex.id)}
@@ -1421,6 +1921,207 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
               >
                 <Check className="w-4 h-4" /> Salvar Ficha de Treino
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Edit / Add Exercise Modal directly on Ficha Cards */}
+      {quickEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#03060f]/85 backdrop-blur-md overflow-y-auto safe-area-top safe-area-bottom animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-[#0a142c] border border-amber-400/40 rounded-3xl shadow-2xl shadow-amber-500/10 overflow-hidden my-auto">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#17284f] flex items-center justify-between bg-gradient-to-r from-[#0c1836] to-[#081022]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    {quickEditModal.isNew ? 'Adicionar Exercício' : 'Editar Exercício'}
+                  </h3>
+                  <p className="text-xs text-amber-400/90 font-mono">
+                    Ficha: {quickEditModal.templateName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickEditModal(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-[#122247] transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Nome do Exercício */}
+              <div>
+                <label className="block text-xs text-slate-300 font-semibold mb-1.5">
+                  Nome do Exercício <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={quickExName}
+                  onChange={(e) => setQuickExName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-[#060c19] border border-[#1a2d56] focus:border-amber-400 rounded-xl text-white text-sm font-semibold focus:outline-none transition-colors"
+                  placeholder="Ex: Supino Reto com Barra, Puxada Alta, Leg Press..."
+                  autoFocus
+                />
+              </div>
+
+              {/* Grupo Muscular */}
+              <div>
+                <label className="block text-xs text-slate-300 font-semibold mb-1.5">
+                  Grupo Muscular
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {(
+                    [
+                      { id: 'peito', label: 'Peito' },
+                      { id: 'costas', label: 'Costas' },
+                      { id: 'pernas', label: 'Pernas' },
+                      { id: 'ombros', label: 'Ombros' },
+                      { id: 'bracos', label: 'Braços' },
+                      { id: 'abdomen', label: 'Abdômen' },
+                    ] as const
+                  ).map((grp) => {
+                    const isSelected = quickExGroup === grp.id;
+                    return (
+                      <button
+                        key={grp.id}
+                        type="button"
+                        onClick={() => setQuickExGroup(grp.id)}
+                        className={`py-2 px-1 text-center rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                            : 'bg-[#060c19] text-slate-300 border-[#1a2d56] hover:border-slate-600'
+                        }`}
+                      >
+                        {grp.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Séries e Carga */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-300 font-semibold mb-1.5">
+                    Séries Padrão
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickExSets((prev) => Math.max(1, prev - 1))}
+                      className="w-10 h-10 rounded-xl bg-[#060c19] border border-[#1a2d56] hover:border-amber-400/50 text-white font-bold text-lg flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={quickExSets}
+                      onChange={(e) => setQuickExSets(Math.max(1, Number(e.target.value) || 1))}
+                      className="flex-1 h-10 px-3 bg-[#060c19] border border-[#1a2d56] focus:border-amber-400 rounded-xl text-white text-center font-mono font-bold text-sm focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQuickExSets((prev) => Math.min(20, prev + 1))}
+                      className="w-10 h-10 rounded-xl bg-[#060c19] border border-[#1a2d56] hover:border-amber-400/50 text-white font-bold text-lg flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-300 font-semibold mb-1.5">
+                    Carga Base / Referência (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={quickExWeight}
+                    onChange={(e) =>
+                      setQuickExWeight(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))
+                    }
+                    placeholder="Opcional (ex: 20)"
+                    className="w-full h-10 px-4 bg-[#060c19] border border-[#1a2d56] focus:border-amber-400 rounded-xl text-white font-mono text-sm focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Faixa de Repetições */}
+              <div>
+                <label className="block text-xs text-slate-300 font-semibold mb-1.5">
+                  Faixa de Repetições / Meta <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={quickExReps}
+                  onChange={(e) => setQuickExReps(e.target.value)}
+                  placeholder="Ex: 8-12 reps, 4x10, 12-15 reps..."
+                  className="w-full px-4 py-2.5 bg-[#060c19] border border-[#1a2d56] focus:border-amber-400 rounded-xl text-white text-sm focus:outline-none transition-colors"
+                />
+
+                {/* Quick Presets for Repetitions */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {['8-12 reps', '10-12 reps', '4x10', '12-15 reps', '6-8 reps', 'Até a falha'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setQuickExReps(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                        quickExReps === preset
+                          ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold shadow-sm'
+                          : 'bg-[#0f1d3a] hover:bg-[#15274d] text-slate-300 border-[#1a2d56]'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-[#17284f] bg-[#081022] flex items-center justify-between gap-3">
+              {!quickEditModal.isNew ? (
+                <button
+                  type="button"
+                  onClick={handleDeleteQuickEditExercise}
+                  className="px-3 py-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Excluir este exercício da ficha"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Excluir da Ficha</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickEditModal(null)}
+                  className="px-4 py-2 rounded-xl border border-[#a16207]/40 bg-[#122247] hover:bg-[#182f61] text-amber-200 text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickEditExercise}
+                  disabled={!quickExName.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/25 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  <Check className="w-4 h-4" /> Salvar Exercício
+                </button>
+              </div>
             </div>
           </div>
         </div>
