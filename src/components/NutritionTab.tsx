@@ -13,14 +13,12 @@ import {
   Flame,
   Droplet,
   Search,
-  Check,
-  AlertCircle,
-  Loader2,
-  PieChart,
-  Calculator,
+  Camera,
+  Database,
+  PenTool,
+  Zap,
 } from 'lucide-react';
-import { FoodCalculatorModal } from './FoodCalculatorModal';
-import { parseMealTextMathematically } from '../utils/offlineNutritionMath';
+import { UnifiedFoodModal, FoodModalTab } from './UnifiedFoodModal';
 
 interface NutritionTabProps {
   profile: UserProfile;
@@ -40,15 +38,15 @@ const MEAL_SECTIONS: Array<{ type: MealType; title: string; desc: string; icon: 
 ];
 
 const COMMON_FIT_FOODS = [
-  { name: 'Peito de Frango Grelhado (100g)', calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-  { name: 'Arroz Branco Cozido (100g)', calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+  { name: 'Peito de Frango Grelhado (120g)', calories: 190, protein: 38, carbs: 0, fat: 3 },
+  { name: 'Arroz Branco Cozido (120g)', calories: 154, protein: 3, carbs: 34, fat: 0.4 },
   { name: 'Feijão Carioca Cozido (100g)', calories: 76, protein: 4.8, carbs: 13.6, fat: 0.5 },
-  { name: 'Ovo Inteiro Cozido (1 unidade)', calories: 75, protein: 6.3, carbs: 0.6, fat: 5.3 },
-  { name: 'Whey Protein Concentrado (30g)', calories: 120, protein: 24, carbs: 2.5, fat: 1.8 },
-  { name: 'Banana Prata (1 média)', calories: 98, protein: 1.3, carbs: 26, fat: 0.3 },
+  { name: 'Ovo Inteiro Cozido (1 unidade)', calories: 73, protein: 6.7, carbs: 0.3, fat: 4.8 },
+  { name: 'Whey Protein Concentrado (30g)', calories: 120, protein: 24, carbs: 1.8, fat: 1.8 },
+  { name: 'Banana Prata (1 unidade 80g)', calories: 78, protein: 1, carbs: 21, fat: 0.1 },
   { name: 'Aveia em Flocos (30g)', calories: 110, protein: 4.2, carbs: 17, fat: 2.2 },
-  { name: 'Batata Doce Cozida (100g)', calories: 86, protein: 1.6, carbs: 20, fat: 0.1 },
-  { name: 'Pasta de Amendoim Integral (15g)', calories: 90, protein: 4, carbs: 3, fat: 7.5 },
+  { name: 'Batata Doce Cozida (120g)', calories: 103, protein: 1.9, carbs: 24, fat: 0.1 },
+  { name: 'Pasta de Amendoim (20g)', calories: 122, protein: 5.6, carbs: 3.2, fat: 10 },
 ];
 
 export const NutritionTab: React.FC<NutritionTabProps> = ({
@@ -62,27 +60,11 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [isFoodCalculatorOpen, setIsFoodCalculatorOpen] = useState(false);
-  const [calculatorMealType, setCalculatorMealType] = useState<MealType>('lunch');
 
-  // Text AI Modal / Prompt
-  const [isTextModalOpen, setIsTextModalOpen] = useState(false);
-  const [textPrompt, setTextPrompt] = useState('');
-  const [isAnalyzingText, setIsAnalyzingText] = useState(false);
-  const [textError, setTextError] = useState<string | null>(null);
-
-  // Manual Quick Add Modal
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [manualMealType, setManualMealType] = useState<MealType>('lunch');
-  const [manualName, setManualName] = useState('');
-  const [manualPortion, setManualPortion] = useState('1 porção');
-  const [manualCalories, setManualCalories] = useState<number>(0);
-  const [manualProtein, setManualProtein] = useState<number>(0);
-  const [manualCarbs, setManualCarbs] = useState<number>(0);
-  const [manualFat, setManualFat] = useState<number>(0);
-
-  // Water tracker
-  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(2000);
+  // Unified Food Modal State
+  const [isUnifiedModalOpen, setIsUnifiedModalOpen] = useState(false);
+  const [unifiedMealType, setUnifiedMealType] = useState<MealType>('lunch');
+  const [unifiedInitialTab, setUnifiedInitialTab] = useState<FoodModalTab>('database');
 
   // Filter logs for selected date
   const dayLogs = foodLogs.filter((log) => log.date === selectedDate);
@@ -103,9 +85,10 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  const handleOpenFoodCalculator = (mealType: MealType) => {
-    setCalculatorMealType(mealType);
-    setIsFoodCalculatorOpen(true);
+  const openAddFoodModal = (mealType: MealType = 'lunch', tab: FoodModalTab = 'database') => {
+    setUnifiedMealType(mealType);
+    setUnifiedInitialTab(tab);
+    setIsUnifiedModalOpen(true);
   };
 
   const handleQuickAddCommon = (food: (typeof COMMON_FIT_FOODS)[0], mealType: MealType) => {
@@ -119,59 +102,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
       carbs: food.carbs,
       fat: food.fat,
     });
-  };
-
-  const handleAnalyzeTextFood = () => {
-    if (!textPrompt.trim()) return;
-    setIsAnalyzingText(true);
-    setTextError(null);
-
-    try {
-      const data = parseMealTextMathematically(textPrompt);
-      onAddFood({
-        date: selectedDate,
-        mealType: manualMealType,
-        name: data.foodName || textPrompt,
-        portion: data.servingEstimate || 'Porção calculada',
-        calories: Number(data.calories) || 0,
-        protein: Number(data.protein) || 0,
-        carbs: Number(data.carbs) || 0,
-        fat: Number(data.fat) || 0,
-        fiber: data.fiber,
-        aiAnalyzed: false,
-        aiConfidence: 100,
-        healthTip: data.healthTip,
-        items: data.items,
-      });
-
-      setTextPrompt('');
-      setIsTextModalOpen(false);
-    } catch (e: any) {
-      setTextError(e.message || 'Erro ao calcular macros');
-    } finally {
-      setIsAnalyzingText(false);
-    }
-  };
-
-  const handleSaveManualFood = () => {
-    if (!manualName.trim()) return;
-    onAddFood({
-      date: selectedDate,
-      mealType: manualMealType,
-      name: manualName.trim(),
-      portion: manualPortion.trim() || '1 porção',
-      calories: Number(manualCalories) || 0,
-      protein: Number(manualProtein) || 0,
-      carbs: Number(manualCarbs) || 0,
-      fat: Number(manualFat) || 0,
-    });
-
-    setManualName('');
-    setManualCalories(0);
-    setManualProtein(0);
-    setManualCarbs(0);
-    setManualFat(0);
-    setIsManualModalOpen(false);
   };
 
   return (
@@ -209,7 +139,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
       {/* Daily Macros & Calorie Card */}
       <div className="bg-gradient-to-br from-[#0a142c] to-[#070e20] border border-[#1a2d56] rounded-3xl p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          {/* Calorie Ring / Numbers in Gold & Mustard */}
+          {/* Calorie Ring / Numbers in Gold & Amber */}
           <div className="flex items-center gap-5">
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-24 h-24 transform -rotate-90">
@@ -263,36 +193,14 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Action trigger buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-            <button
-              onClick={() => handleOpenFoodCalculator('lunch')}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
-            >
-              <Calculator className="w-4 h-4" /> Calculadora de Alimentos
-            </button>
-            <button
-              onClick={() => setIsTextModalOpen(true)}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#122247] hover:bg-[#182f61] text-amber-200 border border-[#a16207]/40 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-amber-400" /> Calcular por Texto
-            </button>
-            <button
-              onClick={() => setIsManualModalOpen(true)}
-              className="px-3.5 py-2.5 rounded-xl bg-[#122247] hover:bg-[#182f61] text-slate-200 border border-[#1a2d56] text-xs font-semibold flex items-center gap-1.5 transition-all"
-            >
-              <Plus className="w-4 h-4 text-amber-400" /> Manual
-            </button>
-          </div>
         </div>
 
-        {/* Macro Bars */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-[#17284f]">
+        {/* 3 Macro Bars */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-5 border-t border-[#17284f]">
           {/* Protein */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="font-bold text-rose-300">Proteínas</span>
+              <span className="font-bold text-rose-400">Proteínas</span>
               <span className="text-slate-200 font-mono">
                 {totalProtein}g / {profile.targetProtein}g
               </span>
@@ -365,6 +273,78 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
         </div>
       </div>
 
+      {/* QUICK LOG CONTROL CENTER (Foto com IA, Descrever, Banco, Manual) */}
+      <div className="bg-gradient-to-r from-[#0d1c3d] via-[#0b1836] to-[#0a152e] border border-amber-400/30 rounded-3xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                <Zap className="w-4 h-4" />
+              </span>
+              Registrar Refeição & Calorias
+            </h3>
+            <p className="text-xs text-slate-300">
+              Fotografe seu prato com IA, descreva em texto, busque no banco ou lance offline
+            </p>
+          </div>
+
+          <button
+            onClick={() => openAddFoodModal('lunch', 'database')}
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            + Adicionar Alimento
+          </button>
+        </div>
+
+        {/* 4 Direct Mode Action Pills */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+          <button
+            onClick={() => openAddFoodModal('lunch', 'camera')}
+            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Camera className="w-4 h-4" />
+            </div>
+            <div className="text-xs font-bold text-white">📸 Foto com IA</div>
+            <div className="text-[10px] text-slate-400">Escaneie o prato</div>
+          </button>
+
+          <button
+            onClick={() => openAddFoodModal('lunch', 'text')}
+            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="text-xs font-bold text-white">✍️ Descrever</div>
+            <div className="text-[10px] text-slate-400">Em texto livre</div>
+          </button>
+
+          <button
+            onClick={() => openAddFoodModal('lunch', 'database')}
+            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Database className="w-4 h-4" />
+            </div>
+            <div className="text-xs font-bold text-white">📚 Banco de Dados</div>
+            <div className="text-[10px] text-slate-400">Tabela com +70 itens</div>
+          </button>
+
+          <button
+            onClick={() => openAddFoodModal('lunch', 'manual')}
+            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <PenTool className="w-4 h-4" />
+            </div>
+            <div className="text-xs font-bold text-white">✏️ Manual 4-4-9</div>
+            <div className="text-[10px] text-slate-400">100% offline direto</div>
+          </button>
+        </div>
+      </div>
+
       {/* Meal Sections */}
       <div className="space-y-4">
         {MEAL_SECTIONS.map((section) => {
@@ -392,17 +372,21 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
 
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => handleOpenFoodCalculator(section.type)}
+                    onClick={() => openAddFoodModal(section.type, 'camera')}
+                    className="p-2 rounded-xl bg-[#122247] hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 text-xs border border-[#17284f] transition-colors cursor-pointer"
+                    title="Fotografar com IA"
+                  >
+                    <Camera className="w-4 h-4 text-amber-400" />
+                  </button>
+                  <button
+                    onClick={() => openAddFoodModal(section.type, 'database')}
                     className="p-2 rounded-xl bg-[#122247] hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 text-xs border border-[#17284f] transition-colors cursor-pointer"
                     title="Buscar na Tabela de Alimentos"
                   >
                     <Search className="w-4 h-4 text-amber-400" />
                   </button>
                   <button
-                    onClick={() => {
-                      setManualMealType(section.type);
-                      setIsManualModalOpen(true);
-                    }}
+                    onClick={() => openAddFoodModal(section.type, 'manual')}
                     className="p-2 rounded-xl bg-[#122247] hover:bg-[#182f61] text-amber-200 text-xs border border-[#a16207]/40 transition-colors"
                     title="Adicionar manualmente"
                   >
@@ -480,7 +464,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
               </div>
               <button
                 onClick={() => handleQuickAddCommon(food, 'lunch')}
-                className="p-1.5 px-2.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 hover:from-amber-500 hover:to-yellow-500 hover:text-slate-950 font-bold text-[11px] transition-all"
+                className="p-1.5 px-2.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 hover:from-amber-500 hover:to-yellow-500 hover:text-slate-950 font-bold text-[11px] transition-all cursor-pointer"
                 title="Adicionar ao almoço"
               >
                 + Add
@@ -490,204 +474,14 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
         </div>
       </div>
 
-      {/* MODAL: Tabela de Alimentos & Calculadora Nutricional Offline */}
-      <FoodCalculatorModal
-        isOpen={isFoodCalculatorOpen}
-        onClose={() => setIsFoodCalculatorOpen(false)}
+      {/* UNIFIED FOOD LOGGING MODAL (Foto IA, Descrever IA, Banco Offline, Manual 4-4-9) */}
+      <UnifiedFoodModal
+        isOpen={isUnifiedModalOpen}
+        onClose={() => setIsUnifiedModalOpen(false)}
         onAddFood={onAddFood}
-        defaultMealType={calculatorMealType}
+        defaultMealType={unifiedMealType}
+        initialTab={unifiedInitialTab}
       />
-
-      {/* MODAL: AI Natural Language Text Logger */}
-      {isTextModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#03060f]/85 backdrop-blur-md">
-          <div className="relative w-full max-w-lg bg-[#0a142c] border border-[#1a2d56] rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#17284f] pb-3">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Calculator className="w-5 h-5 text-amber-400" />
-                  Calculadora Nutricional por Texto
-                </h3>
-                <p className="text-[11px] text-slate-300">
-                  Cálculo determinístico offline com base na Tabela Brasileira e regra matemática 4-4-9
-                </p>
-              </div>
-              <button
-                onClick={() => setIsTextModalOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            {textError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{textError}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Refeição de destino
-              </label>
-              <select
-                value={manualMealType}
-                onChange={(e) => setManualMealType(e.target.value as MealType)}
-                className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
-              >
-                <option value="breakfast">Café da Manhã</option>
-                <option value="lunch">Almoço</option>
-                <option value="afternoon_snack">Lanche da Tarde</option>
-                <option value="dinner">Jantar</option>
-                <option value="snacks">Ceia & Lanches</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                O que você comeu?
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Ex: 200g de frango grelhado e 150g de arroz branco, ou 2 ovos e 1 banana..."
-                value={textPrompt}
-                onChange={(e) => setTextPrompt(e.target.value)}
-                className="w-full px-3 py-2.5 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400"
-              />
-            </div>
-
-            <button
-              onClick={handleAnalyzeTextFood}
-              disabled={isAnalyzingText || !textPrompt.trim()}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 disabled:opacity-50 transition-all cursor-pointer"
-            >
-              {isAnalyzingText ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Calculando macros pela fórmula 4-4-9...
-                </>
-              ) : (
-                <>
-                  <Calculator className="w-4 h-4" />
-                  Calcular Macros Matematicamente e Salvar
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Manual Add Food */}
-      {isManualModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#03060f]/85 backdrop-blur-md">
-          <div className="relative w-full max-w-md bg-[#0a142c] border border-[#1a2d56] rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#17284f] pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-amber-400" />
-                Adicionar Alimento Manual
-              </h3>
-              <button
-                onClick={() => setIsManualModalOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Refeição</label>
-              <select
-                value={manualMealType}
-                onChange={(e) => setManualMealType(e.target.value as MealType)}
-                className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
-              >
-                <option value="breakfast">Café da Manhã</option>
-                <option value="lunch">Almoço</option>
-                <option value="afternoon_snack">Lanche da Tarde</option>
-                <option value="dinner">Jantar</option>
-                <option value="snacks">Ceia & Lanches</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Nome do Alimento
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Iogurte Grego com Granola"
-                value={manualName}
-                onChange={(e) => setManualName(e.target.value)}
-                className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Porção</label>
-                <input
-                  type="text"
-                  placeholder="Ex: 150g ou 1 copo"
-                  value={manualPortion}
-                  onChange={(e) => setManualPortion(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Calorias (kcal)
-                </label>
-                <input
-                  type="number"
-                  placeholder="250"
-                  value={manualCalories || ''}
-                  onChange={(e) => setManualCalories(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs font-mono focus:outline-none focus:border-amber-400"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-[11px] text-rose-400 font-bold mb-1">Proteína (g)</label>
-                <input
-                  type="number"
-                  value={manualProtein || ''}
-                  onChange={(e) => setManualProtein(Number(e.target.value))}
-                  className="w-full px-2 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs font-mono focus:outline-none focus:border-amber-400"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-amber-400 font-bold mb-1">Carbos (g)</label>
-                <input
-                  type="number"
-                  value={manualCarbs || ''}
-                  onChange={(e) => setManualCarbs(Number(e.target.value))}
-                  className="w-full px-2 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs font-mono focus:outline-none focus:border-amber-400"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-sky-400 font-bold mb-1">Gordura (g)</label>
-                <input
-                  type="number"
-                  value={manualFat || ''}
-                  onChange={(e) => setManualFat(Number(e.target.value))}
-                  className="w-full px-2 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs font-mono focus:outline-none focus:border-amber-400"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleSaveManualFood}
-              disabled={!manualName.trim()}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 disabled:opacity-50 transition-all"
-            >
-              <Check className="w-4 h-4" /> Salvar no Diário
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
