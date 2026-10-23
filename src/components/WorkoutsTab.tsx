@@ -26,7 +26,14 @@ import {
   Check,
   GripVertical,
   ChevronUp,
+  AlertTriangle,
 } from 'lucide-react';
+import {
+  getStoredActiveWorkoutSession,
+  saveStoredActiveWorkoutSession,
+  clearStoredActiveWorkoutSession,
+  saveStoredActiveTab,
+} from '../utils/storage';
 
 interface WorkoutsTabProps {
   workoutTemplates: WorkoutTemplate[];
@@ -105,50 +112,183 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [editLiveExName, setEditLiveExName] = useState('');
   const [editLiveExReps, setEditLiveExReps] = useState('');
 
-  // Active workout session
-  const [isLiveActive, setIsLiveActive] = useState(false);
-  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+  // Active workout session with persistence across app switching / browser suspends
+  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    return stored?.session || null;
+  });
+  const [isLiveActive, setIsLiveActive] = useState<boolean>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    return !!stored?.session;
+  });
+  const [sessionStartTime, setSessionStartTime] = useState<number>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    return stored?.startTime || Date.now();
+  });
+  const [liveElapsedSeconds, setLiveElapsedSeconds] = useState<number>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    if (stored?.startTime) {
+      return Math.max(0, Math.floor((Date.now() - stored.startTime) / 1000));
+    }
+    return 0;
+  });
 
-  // Rest Timer
-  const [restSeconds, setRestSeconds] = useState<number>(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Rest Timer with timestamp persistence
+  const [restEndTime, setRestEndTime] = useState<number | null>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    return stored?.restTimerEndTime || null;
+  });
+  const [restSeconds, setRestSeconds] = useState<number>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    if (stored?.restTimerEndTime && stored.restTimerEndTime > Date.now()) {
+      return Math.max(0, Math.ceil((stored.restTimerEndTime - Date.now()) / 1000));
+    }
+    return 0;
+  });
+  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    return !!(stored?.restTimerEndTime && stored.restTimerEndTime > Date.now());
+  });
+
+  // Modal to confirm cancel workout
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   // Selected exercise for Progression View
   const [selectedProgressionExercise, setSelectedProgressionExercise] = useState<string | null>(null);
 
+  // Time formatter (HH:MM:SS or MM:SS)
+  const formatTime = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    if (hrs > 0) {
+      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Sync active session changes to localStorage immediately so no state is ever lost
+  useEffect(() => {
+    if (isLiveActive && activeSession) {
+      saveStoredActiveWorkoutSession({
+        session: activeSession,
+        startTime: sessionStartTime,
+        restTimerEndTime: isTimerRunning && restEndTime ? restEndTime : null,
+        restTimerDuration: restSeconds,
+        subView,
+      });
+      saveStoredActiveTab('workouts');
+    }
+  }, [activeSession, isLiveActive, sessionStartTime, restEndTime, isTimerRunning, subView, restSeconds]);
+
+  // Real-time elapsed workout timer ticker (calculates from start timestamp)
+  useEffect(() => {
+    if (!isLiveActive) return;
+
+    setLiveElapsedSeconds(Math.max(0, Math.floor((Date.now() - sessionStartTime) / 1000)));
+
+    const interval = setInterval(() => {
+      setLiveElapsedSeconds(Math.max(0, Math.floor((Date.now() - sessionStartTime) / 1000)));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLiveActive, sessionStartTime]);
+
+  // Rest Timer countdown
+  useEffect(() => {
+    if (!isTimerRunning || !restEndTime) return;
+
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((restEndTime - Date.now()) / 1000));
+      setRestSeconds(remaining);
+
+      if (remaining <= 0) {
+        setIsTimerRunning(false);
+        setRestEndTime(null);
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        } catch (e) {
+          // Audio fallback
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isTimerRunning, restEndTime]);
+
   // Start rest timer
   const startRestTimer = (seconds: number) => {
+    const end = Date.now() + seconds * 1000;
+    setRestEndTime(end);
     setRestSeconds(seconds);
     setIsTimerRunning(true);
   };
 
+  // Listen for visibility and focus changes (e.g. user returns from Spotify, WhatsApp, or locks phone)
   useEffect(() => {
-    if (isTimerRunning && restSeconds > 0) {
-      timerIntervalRef.current = setTimeout(() => {
-        setRestSeconds((prev) => prev - 1);
-      }, 1000);
-    } else if (restSeconds === 0 && isTimerRunning) {
-      setIsTimerRunning(false);
-      try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
-      } catch (e) {
-        // Audio fallback
+    const handleSync = () => {
+      if (document.visibilityState === 'visible') {
+        const stored = getStoredActiveWorkoutSession();
+        if (stored?.session) {
+          setActiveSession(stored.session);
+          setIsLiveActive(true);
+          if (stored.startTime) {
+            setSessionStartTime(stored.startTime);
+            setLiveElapsedSeconds(Math.max(0, Math.floor((Date.now() - stored.startTime) / 1000)));
+          }
+          if (stored.restTimerEndTime && stored.restTimerEndTime > Date.now()) {
+            const remaining = Math.max(0, Math.ceil((stored.restTimerEndTime - Date.now()) / 1000));
+            setRestSeconds(remaining);
+            setRestEndTime(stored.restTimerEndTime);
+            setIsTimerRunning(true);
+          } else if (stored.restTimerEndTime) {
+            setRestSeconds(0);
+            setRestEndTime(null);
+            setIsTimerRunning(false);
+          }
+        }
       }
-    }
+    };
+
+    document.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('focus', handleSync);
 
     return () => {
-      if (timerIntervalRef.current) clearTimeout(timerIntervalRef.current);
+      document.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('focus', handleSync);
     };
-  }, [isTimerRunning, restSeconds]);
+  }, []);
+
+  // Safeguard before unload/close
+  useEffect(() => {
+    if (!isLiveActive || !activeSession) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      saveStoredActiveWorkoutSession({
+        session: activeSession,
+        startTime: sessionStartTime,
+        restTimerEndTime: isTimerRunning && restEndTime ? restEndTime : null,
+        restTimerDuration: restSeconds,
+        subView,
+      });
+      saveStoredActiveTab('workouts');
+      e.preventDefault();
+      e.returnValue = 'Seu treino está em andamento. Deseja sair?';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isLiveActive, activeSession, sessionStartTime, restEndTime, isTimerRunning, subView, restSeconds]);
 
   // Open modal to create a new ficha
   const handleOpenCreateTemplate = () => {
@@ -455,13 +595,14 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
   // Start workout from a user-created ficha
   const handleStartFromTemplate = (template: WorkoutTemplate) => {
+    const startTimeMs = Date.now();
     // Find the latest loads used for each exercise from previous workout sessions
     const session: WorkoutSession = {
-      id: 'w-' + Date.now(),
+      id: 'w-' + startTimeMs,
       date: new Date().toISOString().split('T')[0],
       templateId: template.id,
       name: template.name,
-      durationMinutes: 50,
+      durationMinutes: 45,
       estimatedCaloriesBurned: 350,
       completed: false,
       notes: '',
@@ -474,7 +615,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
         const count = tmplEx.defaultSets || 3;
         for (let i = 1; i <= count; i++) {
           sets.push({
-            id: `s-${tmplEx.id}-${i}-${Date.now()}`,
+            id: `s-${tmplEx.id}-${i}-${startTimeMs}`,
             setNumber: i,
             weightKg: weightToUse,
             reps: 10,
@@ -483,7 +624,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
         }
 
         return {
-          id: 'ex-' + tmplEx.id + '-' + Date.now(),
+          id: 'ex-' + tmplEx.id + '-' + startTimeMs,
           name: tmplEx.name,
           muscleGroup: tmplEx.muscleGroup,
           targetReps: tmplEx.targetReps,
@@ -493,14 +634,27 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       }),
     };
 
+    setSessionStartTime(startTimeMs);
+    setLiveElapsedSeconds(0);
     setActiveSession(session);
     setIsLiveActive(true);
+    setRestEndTime(null);
+    setIsTimerRunning(false);
+
+    saveStoredActiveWorkoutSession({
+      session,
+      startTime: startTimeMs,
+      restTimerEndTime: null,
+      subView: 'fichas',
+    });
+    saveStoredActiveTab('workouts');
   };
 
   // Start free blank workout
   const handleStartBlankWorkout = () => {
+    const startTimeMs = Date.now();
     const session: WorkoutSession = {
-      id: 'w-' + Date.now(),
+      id: 'w-' + startTimeMs,
       date: new Date().toISOString().split('T')[0],
       name: 'Treino de Hoje',
       durationMinutes: 45,
@@ -509,8 +663,21 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       notes: '',
       exercises: [],
     };
+
+    setSessionStartTime(startTimeMs);
+    setLiveElapsedSeconds(0);
     setActiveSession(session);
     setIsLiveActive(true);
+    setRestEndTime(null);
+    setIsTimerRunning(false);
+
+    saveStoredActiveWorkoutSession({
+      session,
+      startTime: startTimeMs,
+      restTimerEndTime: null,
+      subView: 'fichas',
+    });
+    saveStoredActiveTab('workouts');
   };
 
   // Helper to find latest recorded weight for an exercise
@@ -660,8 +827,11 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       );
     }, 0);
 
+    const actualDurationMinutes = Math.max(1, Math.round(liveElapsedSeconds / 60));
+
     const finished: WorkoutSession = {
       ...activeSession,
+      durationMinutes: actualDurationMinutes,
       completed: true,
       notes: activeSession.notes
         ? `${activeSession.notes} (Volume: ${totalKg.toLocaleString('pt-BR')} kg)`
@@ -694,8 +864,10 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       }
     }
 
+    clearStoredActiveWorkoutSession();
     setIsLiveActive(false);
     setActiveSession(null);
+    setRestEndTime(null);
     setIsTimerRunning(false);
   };
 
@@ -755,11 +927,15 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
           <div className="flex items-center gap-3">
             <span className="text-2xl font-black font-mono">
-              00:{restSeconds < 10 ? `0${restSeconds}` : restSeconds}
+              {Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2, '0')}
             </span>
             <button
-              onClick={() => setIsTimerRunning(false)}
-              className="px-3 py-1 bg-black/30 hover:bg-black/50 text-white rounded-lg text-xs font-bold"
+              onClick={() => {
+                setIsTimerRunning(false);
+                setRestEndTime(null);
+                setRestSeconds(0);
+              }}
+              className="px-3 py-1 bg-black/30 hover:bg-black/50 text-white rounded-lg text-xs font-bold cursor-pointer"
             >
               Pular
             </button>
@@ -772,10 +948,17 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
         <div className="bg-[#0a142c] border border-[#a16207]/50 rounded-3xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#1a2d56] pb-4">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
                 <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
                   Sessão em Andamento
+                </span>
+                <span className="text-xs font-mono font-black text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1.5 shadow-sm">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  {formatTime(liveElapsedSeconds)}
+                </span>
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Salvo automaticamente
                 </span>
               </div>
               <input
@@ -789,17 +972,14 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setIsLiveActive(false);
-                  setActiveSession(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-[#122247] hover:bg-[#182f61] text-slate-300 text-xs font-semibold border border-[#1a2d56]"
+                onClick={() => setIsCancelModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-[#122247] hover:bg-[#182f61] text-slate-300 hover:text-white text-xs font-semibold border border-[#1a2d56] transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleFinishWorkout}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/25 transition-all"
+                className="px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" /> Concluir Treino & Salvar Cargas
               </button>
@@ -2122,6 +2302,50 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                   <Check className="w-4 h-4" /> Salvar Exercício
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal to Confirm Canceling Active Workout */}
+      {isCancelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#03060f]/85 backdrop-blur-md safe-area-top safe-area-bottom animate-in fade-in duration-150">
+          <div className="relative w-full max-w-sm bg-[#0a142c] border border-rose-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/20">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-white">
+                Cancelar este treino?
+              </h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                O progresso e as séries realizadas nesta sessão serão descartados. Tem certeza que deseja cancelar?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="flex-1 py-2.5 px-3 rounded-xl border border-[#1a2d56] bg-[#122247] hover:bg-[#182f61] text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Continuar Treinando
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearStoredActiveWorkoutSession();
+                  setIsLiveActive(false);
+                  setActiveSession(null);
+                  setRestEndTime(null);
+                  setIsTimerRunning(false);
+                  setIsCancelModalOpen(false);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 cursor-pointer transition-colors"
+              >
+                Sim, Cancelar
+              </button>
             </div>
           </div>
         </div>

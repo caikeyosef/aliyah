@@ -28,6 +28,8 @@ export const STORAGE_KEYS = {
   RUNNA_PLAN: 'fitmorph_runna_plan',
   RUNNA_READINESS: 'fitmorph_runna_readiness',
   FEED_POSTS: 'fitmorph_feed_posts',
+  ACTIVE_WORKOUT_SESSION: 'fitmorph_active_workout_session',
+  ACTIVE_TAB: 'fitmorph_active_tab',
 };
 
 export function getTodayDateStr(): string {
@@ -425,6 +427,65 @@ export function saveReadinessCheckin(checkin: ReadinessCheckin): void {
     localStorage.setItem(STORAGE_KEYS.RUNNA_READINESS, JSON.stringify(updated));
   } catch (e) {
     console.error('Erro ao salvar check-in de prontidão', e);
+  }
+}
+
+export interface ActiveWorkoutPersistence {
+  session: WorkoutSession;
+  startTime: number;
+  restTimerEndTime?: number | null;
+  restTimerDuration?: number;
+  subView?: 'fichas' | 'progression' | 'history';
+}
+
+export function getStoredActiveWorkoutSession(): ActiveWorkoutPersistence | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_WORKOUT_SESSION);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.session && typeof parsed.session === 'object') {
+        return parsed as ActiveWorkoutPersistence;
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao ler treino ativo em andamento', e);
+  }
+  return null;
+}
+
+export function saveStoredActiveWorkoutSession(data: ActiveWorkoutPersistence | null): void {
+  try {
+    if (data && data.session) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_WORKOUT_SESSION, JSON.stringify(data));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT_SESSION);
+    }
+  } catch (e) {
+    console.error('Erro ao salvar treino ativo em andamento', e);
+  }
+}
+
+export function clearStoredActiveWorkoutSession(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT_SESSION);
+  } catch (e) {
+    console.error('Erro ao limpar treino ativo', e);
+  }
+}
+
+export function getStoredActiveTab(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredActiveTab(tab: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, tab);
+  } catch {
+    // LocalStorage full or blocked
   }
 }
 

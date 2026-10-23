@@ -43,6 +43,9 @@ import {
   DEFAULT_COACH_FEEDBACK,
   clearAllStoredData,
   getTodayDateStr,
+  getStoredActiveWorkoutSession,
+  getStoredActiveTab,
+  saveStoredActiveTab,
 } from './utils/storage';
 import { calculateCompleteProfile } from './utils/fitnessMath';
 import { Navbar, TabType } from './components/Navbar';
@@ -74,7 +77,7 @@ import { SetGoalModal } from './components/SetGoalModal';
 import { FoodCalculatorModal } from './components/FoodCalculatorModal';
 import { DataBackupModal } from './components/DataBackupModal';
 import { AliyahBackupPayload } from './utils/backup';
-import { RotateCcw, ArrowUp, Database, Flame } from 'lucide-react';
+import { RotateCcw, ArrowUp, Database, Flame, Play } from 'lucide-react';
 
 export default function App() {
   const [profile, setProfile] = useState<UserProfile>(getStoredProfile);
@@ -86,7 +89,54 @@ export default function App() {
   const [coachFeedback, setCoachFeedback] = useState<AICoachFeedback>(getStoredCoachFeedback);
   const [habits, setHabits] = useState<HabitItem[]>(getStoredHabits);
 
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    // If an active workout session is currently in progress, always restore directly to workouts!
+    const activeWorkout = getStoredActiveWorkoutSession();
+    if (activeWorkout?.session) {
+      return 'workouts';
+    }
+    const saved = getStoredActiveTab();
+    if (saved) return saved as TabType;
+    return 'dashboard';
+  });
+
+  const [activeWorkoutNotice, setActiveWorkoutNotice] = useState<{
+    name: string;
+    startTime: number;
+  } | null>(() => {
+    const stored = getStoredActiveWorkoutSession();
+    if (stored?.session) {
+      return { name: stored.session.name, startTime: stored.startTime };
+    }
+    return null;
+  });
+
+  // Persist activeTab whenever user switches tabs
+  useEffect(() => {
+    saveStoredActiveTab(activeTab);
+  }, [activeTab]);
+
+  // Keep activeWorkoutNotice in sync across tab changes and app switching
+  useEffect(() => {
+    const handleSync = () => {
+      const stored = getStoredActiveWorkoutSession();
+      if (stored?.session) {
+        setActiveWorkoutNotice({ name: stored.session.name, startTime: stored.startTime });
+      } else {
+        setActiveWorkoutNotice(null);
+      }
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    document.addEventListener('visibilitychange', handleSync);
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleSync);
+    };
+  }, []);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => !hasUserCompletedOnboarding());
   const [isSetGoalModalOpen, setIsSetGoalModalOpen] = useState<boolean>(false);
   const [isFoodCalculatorOpen, setIsFoodCalculatorOpen] = useState<boolean>(false);
@@ -668,6 +718,35 @@ export default function App() {
         onClose={() => setIsBackupModalOpen(false)}
         onDataRestored={handleDataRestored}
       />
+
+      {/* Persistent Live Workout Indicator when user navigates to another tab */}
+      {activeTab !== 'workouts' && activeWorkoutNotice && (
+        <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-md bg-gradient-to-r from-[#0d1a38] via-[#091329] to-[#070e1f] border border-amber-400/80 rounded-2xl p-3 shadow-2xl shadow-amber-500/25 flex items-center justify-between gap-3 backdrop-blur-md animate-in slide-in-from-bottom-3 duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-3 w-3 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+            </span>
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block leading-tight">
+                Treino em Andamento
+              </span>
+              <span className="text-xs font-black text-white truncate block">
+                {activeWorkoutNotice.name}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setActiveTab('workouts');
+              saveStoredActiveTab('workouts');
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shrink-0 flex items-center gap-1.5 shadow-md shadow-amber-500/30 cursor-pointer transition-all"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" /> Retomar Ficha
+          </button>
+        </div>
+      )}
     </div>
   );
 }
