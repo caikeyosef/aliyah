@@ -107,6 +107,8 @@ export function calculateCompleteProfile(params: {
   targetDays?: number;
   startDate?: string;
   targetDate?: string;
+  isCustomCalories?: boolean;
+  customCalories?: number;
 }): UserProfile {
   const {
     name,
@@ -118,19 +120,28 @@ export function calculateCompleteProfile(params: {
     goal = 'none',
     goalIntensity = 'moderate',
     hasActiveGoal = goal !== 'none',
+    isCustomCalories = false,
+    customCalories,
   } = params;
 
   const bmr = calculateBMR(gender, currentWeight, height, age);
   const tdee = calculateTDEE(bmr, activityLevel);
-  const calorieAdjustment = hasActiveGoal ? getCalorieAdjustment(goal, goalIntensity) : 0;
+  const standardAdjustment = hasActiveGoal ? getCalorieAdjustment(goal, goalIntensity) : 0;
 
-  // Meta diária mínima segura
+  // Calorias mínimas seguras de referência
   const minSafe = gender === 'female' ? 1200 : 1400;
-  const targetCalories = hasActiveGoal
-    ? Math.max(minSafe, Math.round(tdee + calorieAdjustment))
+  const recommendedCalories = hasActiveGoal
+    ? Math.max(minSafe, Math.round(tdee + standardAdjustment))
     : tdee;
 
-  // Macronutrientes
+  // Se o usuário optou por valor livre e digitou um valor razoável, usa o valor livre
+  const isCustom = Boolean(isCustomCalories && customCalories && customCalories >= 500);
+  const targetCalories = isCustom ? Math.round(customCalories!) : recommendedCalories;
+
+  // Ajuste calórico real em relação ao gasto diário (TDEE)
+  const calorieAdjustment = targetCalories - tdee;
+
+  // Macronutrientes calibrados
   let proteinPerKg = 2.0;
   if (goal === 'gain_weight') proteinPerKg = 2.1;
   if (goal === 'maintain' || goal === 'none') proteinPerKg = 1.8;
@@ -149,7 +160,7 @@ export function calculateCompleteProfile(params: {
 
   // Projeção matemática: ~7700 kcal por 1kg de gordura
   const totalCalorieDelta = calorieAdjustment * targetDays;
-  const projectedWeightChangeKg = hasActiveGoal
+  const projectedWeightChangeKg = hasActiveGoal || isCustom
     ? Number((totalCalorieDelta / 7700).toFixed(1))
     : 0;
   const projectedFinalWeight = Number((currentWeight + projectedWeightChangeKg).toFixed(1));
@@ -166,7 +177,7 @@ export function calculateCompleteProfile(params: {
   }
 
   return {
-    name: name || 'Atleta FitMorph',
+    name: name || 'Atleta Aliyah',
     gender,
     age,
     height,
@@ -183,6 +194,9 @@ export function calculateCompleteProfile(params: {
     bmr,
     tdee,
     calorieAdjustment,
+    recommendedCalories,
+    isCustomCalories: isCustom,
+    customCalories: isCustom ? targetCalories : undefined,
     targetCalories,
     targetProtein,
     targetCarbs,

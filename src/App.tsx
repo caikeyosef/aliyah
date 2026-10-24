@@ -338,6 +338,8 @@ export default function App() {
       hasActiveGoal: profile.hasActiveGoal,
       targetDays: profile.targetDays,
       startDate: profile.startDate,
+      isCustomCalories: profile.isCustomCalories,
+      customCalories: profile.customCalories,
     });
     setProfile(updated);
   };
@@ -406,6 +408,8 @@ export default function App() {
       hasActiveGoal: profile.hasActiveGoal,
       targetDays: days,
       startDate: profile.startDate,
+      isCustomCalories: profile.isCustomCalories,
+      customCalories: profile.customCalories,
     });
     setProfile(updated);
   };

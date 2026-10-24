@@ -13,12 +13,14 @@ import {
   Flame,
   Droplet,
   Search,
-  Camera,
-  Database,
-  PenTool,
-  Zap,
+  Check,
+  AlertCircle,
+  Loader2,
+  PieChart,
+  Calculator,
 } from 'lucide-react';
-import { UnifiedFoodModal, FoodModalTab } from './UnifiedFoodModal';
+import { FoodCalculatorModal } from './FoodCalculatorModal';
+import { calculateCaloriesFromMacros } from '../utils/offlineNutritionMath';
 
 interface NutritionTabProps {
   profile: UserProfile;
@@ -38,15 +40,15 @@ const MEAL_SECTIONS: Array<{ type: MealType; title: string; desc: string; icon: 
 ];
 
 const COMMON_FIT_FOODS = [
-  { name: 'Peito de Frango Grelhado (120g)', calories: 190, protein: 38, carbs: 0, fat: 3 },
-  { name: 'Arroz Branco Cozido (120g)', calories: 154, protein: 3, carbs: 34, fat: 0.4 },
+  { name: 'Peito de Frango Grelhado (100g)', calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+  { name: 'Arroz Branco Cozido (100g)', calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
   { name: 'Feijão Carioca Cozido (100g)', calories: 76, protein: 4.8, carbs: 13.6, fat: 0.5 },
-  { name: 'Ovo Inteiro Cozido (1 unidade)', calories: 73, protein: 6.7, carbs: 0.3, fat: 4.8 },
-  { name: 'Whey Protein Concentrado (30g)', calories: 120, protein: 24, carbs: 1.8, fat: 1.8 },
-  { name: 'Banana Prata (1 unidade 80g)', calories: 78, protein: 1, carbs: 21, fat: 0.1 },
+  { name: 'Ovo Inteiro Cozido (1 unidade)', calories: 75, protein: 6.3, carbs: 0.6, fat: 5.3 },
+  { name: 'Whey Protein Concentrado (30g)', calories: 120, protein: 24, carbs: 2.5, fat: 1.8 },
+  { name: 'Banana Prata (1 média)', calories: 98, protein: 1.3, carbs: 26, fat: 0.3 },
   { name: 'Aveia em Flocos (30g)', calories: 110, protein: 4.2, carbs: 17, fat: 2.2 },
-  { name: 'Batata Doce Cozida (120g)', calories: 103, protein: 1.9, carbs: 24, fat: 0.1 },
-  { name: 'Pasta de Amendoim (20g)', calories: 122, protein: 5.6, carbs: 3.2, fat: 10 },
+  { name: 'Batata Doce Cozida (100g)', calories: 86, protein: 1.6, carbs: 20, fat: 0.1 },
+  { name: 'Pasta de Amendoim Integral (15g)', calories: 90, protein: 4, carbs: 3, fat: 7.5 },
 ];
 
 export const NutritionTab: React.FC<NutritionTabProps> = ({
@@ -60,11 +62,22 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
+  const [isFoodCalculatorOpen, setIsFoodCalculatorOpen] = useState(false);
+  const [calculatorMealType, setCalculatorMealType] = useState<MealType>('lunch');
 
-  // Unified Food Modal State
-  const [isUnifiedModalOpen, setIsUnifiedModalOpen] = useState(false);
-  const [unifiedMealType, setUnifiedMealType] = useState<MealType>('lunch');
-  const [unifiedInitialTab, setUnifiedInitialTab] = useState<FoodModalTab>('database');
+  // Manual Add Modal
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [manualMealType, setManualMealType] = useState<MealType>('lunch');
+  const [manualName, setManualName] = useState('');
+  const [manualPortion, setManualPortion] = useState('1 porção');
+  const [manualCalories, setManualCalories] = useState<number>(0);
+  const [manualProtein, setManualProtein] = useState<number>(0);
+  const [manualCarbs, setManualCarbs] = useState<number>(0);
+  const [manualFat, setManualFat] = useState<number>(0);
+  const [manualFiber, setManualFiber] = useState<number>(0);
+
+  // Water tracker
+  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(2000);
 
   // Filter logs for selected date
   const dayLogs = foodLogs.filter((log) => log.date === selectedDate);
@@ -85,10 +98,9 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  const openAddFoodModal = (mealType: MealType = 'lunch', tab: FoodModalTab = 'database') => {
-    setUnifiedMealType(mealType);
-    setUnifiedInitialTab(tab);
-    setIsUnifiedModalOpen(true);
+  const handleOpenFoodCalculator = (mealType: MealType) => {
+    setCalculatorMealType(mealType);
+    setIsFoodCalculatorOpen(true);
   };
 
   const handleQuickAddCommon = (food: (typeof COMMON_FIT_FOODS)[0], mealType: MealType) => {
@@ -102,6 +114,34 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
       carbs: food.carbs,
       fat: food.fat,
     });
+  };
+
+  const handleRecalculateManualCalories = (p: number, c: number, f: number) => {
+    const cal = calculateCaloriesFromMacros(p, c, f);
+    setManualCalories(cal);
+  };
+
+  const handleSaveManualFood = () => {
+    if (!manualName.trim()) return;
+    onAddFood({
+      date: selectedDate,
+      mealType: manualMealType,
+      name: manualName.trim(),
+      portion: manualPortion.trim() || '1 porção',
+      calories: Number(manualCalories) || 0,
+      protein: Number(manualProtein) || 0,
+      carbs: Number(manualCarbs) || 0,
+      fat: Number(manualFat) || 0,
+      fiber: Number(manualFiber) || 0,
+    });
+
+    setManualName('');
+    setManualCalories(0);
+    setManualProtein(0);
+    setManualCarbs(0);
+    setManualFat(0);
+    setManualFiber(0);
+    setIsManualModalOpen(false);
   };
 
   return (
@@ -139,7 +179,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
       {/* Daily Macros & Calorie Card */}
       <div className="bg-gradient-to-br from-[#0a142c] to-[#070e20] border border-[#1a2d56] rounded-3xl p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          {/* Calorie Ring / Numbers in Gold & Amber */}
+          {/* Calorie Ring / Numbers in Gold & Mustard */}
           <div className="flex items-center gap-5">
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-24 h-24 transform -rotate-90">
@@ -193,14 +233,30 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Action trigger buttons */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+            <button
+              onClick={() => handleOpenFoodCalculator('lunch')}
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+            >
+              <Search className="w-4 h-4" /> Tabela de Alimentos
+            </button>
+            <button
+              onClick={() => setIsManualModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-[#122247] hover:bg-[#182f61] text-amber-200 border border-[#a16207]/40 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-amber-400" /> Adicionar Manual
+            </button>
+          </div>
         </div>
 
-        {/* 3 Macro Bars */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-5 border-t border-[#17284f]">
+        {/* Macro Bars */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-[#17284f]">
           {/* Protein */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="font-bold text-rose-400">Proteínas</span>
+              <span className="font-bold text-rose-300">Proteínas</span>
               <span className="text-slate-200 font-mono">
                 {totalProtein}g / {profile.targetProtein}g
               </span>
@@ -273,78 +329,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
         </div>
       </div>
 
-      {/* QUICK LOG CONTROL CENTER (Foto com IA, Descrever, Banco, Manual) */}
-      <div className="bg-gradient-to-r from-[#0d1c3d] via-[#0b1836] to-[#0a152e] border border-amber-400/30 rounded-3xl p-5 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-black text-white flex items-center gap-2">
-              <span className="p-1.5 rounded-xl bg-amber-400/10 text-amber-400 border border-amber-400/20">
-                <Zap className="w-4 h-4" />
-              </span>
-              Registrar Refeição & Calorias
-            </h3>
-            <p className="text-xs text-slate-300">
-              Fotografe seu prato com IA, descreva em texto, busque no banco ou lance offline
-            </p>
-          </div>
-
-          <button
-            onClick={() => openAddFoodModal('lunch', 'database')}
-            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            + Adicionar Alimento
-          </button>
-        </div>
-
-        {/* 4 Direct Mode Action Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-          <button
-            onClick={() => openAddFoodModal('lunch', 'camera')}
-            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Camera className="w-4 h-4" />
-            </div>
-            <div className="text-xs font-bold text-white">📸 Foto com IA</div>
-            <div className="text-[10px] text-slate-400">Escaneie o prato</div>
-          </button>
-
-          <button
-            onClick={() => openAddFoodModal('lunch', 'text')}
-            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="text-xs font-bold text-white">✍️ Descrever</div>
-            <div className="text-[10px] text-slate-400">Em texto livre</div>
-          </button>
-
-          <button
-            onClick={() => openAddFoodModal('lunch', 'database')}
-            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Database className="w-4 h-4" />
-            </div>
-            <div className="text-xs font-bold text-white">📚 Banco de Dados</div>
-            <div className="text-[10px] text-slate-400">Tabela com +70 itens</div>
-          </button>
-
-          <button
-            onClick={() => openAddFoodModal('lunch', 'manual')}
-            className="p-3 rounded-2xl bg-[#08122a] hover:bg-[#10224d] border border-[#1a3160] hover:border-amber-400/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <PenTool className="w-4 h-4" />
-            </div>
-            <div className="text-xs font-bold text-white">✏️ Manual 4-4-9</div>
-            <div className="text-[10px] text-slate-400">100% offline direto</div>
-          </button>
-        </div>
-      </div>
-
       {/* Meal Sections */}
       <div className="space-y-4">
         {MEAL_SECTIONS.map((section) => {
@@ -372,21 +356,17 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
 
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => openAddFoodModal(section.type, 'camera')}
-                    className="p-2 rounded-xl bg-[#122247] hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 text-xs border border-[#17284f] transition-colors cursor-pointer"
-                    title="Fotografar com IA"
-                  >
-                    <Camera className="w-4 h-4 text-amber-400" />
-                  </button>
-                  <button
-                    onClick={() => openAddFoodModal(section.type, 'database')}
+                    onClick={() => handleOpenFoodCalculator(section.type)}
                     className="p-2 rounded-xl bg-[#122247] hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 text-xs border border-[#17284f] transition-colors cursor-pointer"
                     title="Buscar na Tabela de Alimentos"
                   >
                     <Search className="w-4 h-4 text-amber-400" />
                   </button>
                   <button
-                    onClick={() => openAddFoodModal(section.type, 'manual')}
+                    onClick={() => {
+                      setManualMealType(section.type);
+                      setIsManualModalOpen(true);
+                    }}
                     className="p-2 rounded-xl bg-[#122247] hover:bg-[#182f61] text-amber-200 text-xs border border-[#a16207]/40 transition-colors"
                     title="Adicionar manualmente"
                   >
@@ -464,7 +444,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
               </div>
               <button
                 onClick={() => handleQuickAddCommon(food, 'lunch')}
-                className="p-1.5 px-2.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 hover:from-amber-500 hover:to-yellow-500 hover:text-slate-950 font-bold text-[11px] transition-all cursor-pointer"
+                className="p-1.5 px-2.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 hover:from-amber-500 hover:to-yellow-500 hover:text-slate-950 font-bold text-[11px] transition-all"
                 title="Adicionar ao almoço"
               >
                 + Add
@@ -474,14 +454,178 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
         </div>
       </div>
 
-      {/* UNIFIED FOOD LOGGING MODAL (Foto IA, Descrever IA, Banco Offline, Manual 4-4-9) */}
-      <UnifiedFoodModal
-        isOpen={isUnifiedModalOpen}
-        onClose={() => setIsUnifiedModalOpen(false)}
+      {/* MODAL: Tabela de Alimentos & Calculadora Nutricional Offline */}
+      <FoodCalculatorModal
+        isOpen={isFoodCalculatorOpen}
+        onClose={() => setIsFoodCalculatorOpen(false)}
         onAddFood={onAddFood}
-        defaultMealType={unifiedMealType}
-        initialTab={unifiedInitialTab}
+        defaultMealType={calculatorMealType}
       />
+
+      {/* MODAL: Manual Add Food */}
+      {isManualModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#03060f]/85 backdrop-blur-md">
+          <div className="relative w-full max-w-md bg-[#0a142c] border border-[#1a2d56] rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#17284f] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-amber-400" />
+                  Adicionar Alimento Manual
+                </h3>
+                <p className="text-[11px] text-slate-300">
+                  Preencha os dados e macros conforme rótulo ou receita
+                </p>
+              </div>
+              <button
+                onClick={() => setIsManualModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#122247] text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Refeição de Destino</label>
+              <select
+                value={manualMealType}
+                onChange={(e) => setManualMealType(e.target.value as MealType)}
+                className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
+              >
+                <option value="breakfast">🍳 Café da Manhã</option>
+                <option value="lunch">🍛 Almoço</option>
+                <option value="afternoon_snack">🍌 Lanche da Tarde</option>
+                <option value="dinner">🍲 Jantar</option>
+                <option value="snacks">🥛 Ceia & Lanches Extras</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Nome do Alimento
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Iogurte Grego com Granola ou Prato Caseiro"
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Porção / Medida</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 150g, 1 copo, 2 fatias"
+                  value={manualPortion}
+                  onChange={(e) => setManualPortion(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-white text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Calorias Totais (kcal)
+                </label>
+                <input
+                  type="number"
+                  placeholder="250"
+                  value={manualCalories || ''}
+                  onChange={(e) => setManualCalories(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#060c19] border border-[#17284f] rounded-xl text-amber-300 font-mono font-bold text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            {/* Macros 4 columns */}
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <label className="block text-[10px] text-rose-400 font-bold mb-1 uppercase">Proteína</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualProtein || ''}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setManualProtein(v);
+                      handleRecalculateManualCalories(v, manualCarbs, manualFat);
+                    }}
+                    className="w-full px-2 py-1.5 bg-[#060c19] border border-[#17284f] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400">g</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-amber-400 font-bold mb-1 uppercase">Carbos</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualCarbs || ''}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setManualCarbs(v);
+                      handleRecalculateManualCalories(manualProtein, v, manualFat);
+                    }}
+                    className="w-full px-2 py-1.5 bg-[#060c19] border border-[#17284f] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400">g</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-sky-400 font-bold mb-1 uppercase">Gorduras</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualFat || ''}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setManualFat(v);
+                      handleRecalculateManualCalories(manualProtein, manualCarbs, v);
+                    }}
+                    className="w-full px-2 py-1.5 bg-[#060c19] border border-[#17284f] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400">g</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-emerald-400 font-bold mb-1 uppercase">Fibras</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualFiber || ''}
+                    onChange={(e) => setManualFiber(Number(e.target.value))}
+                    className="w-full px-2 py-1.5 bg-[#060c19] border border-[#17284f] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400">g</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+              <span>Cálculo automático:</span>
+              <span className="font-mono text-amber-300">
+                (P×4) + (C×4) + (G×9) = {calculateCaloriesFromMacros(manualProtein, manualCarbs, manualFat)} kcal
+              </span>
+            </div>
+
+            <button
+              onClick={handleSaveManualFood}
+              disabled={!manualName.trim() || manualCalories <= 0}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 disabled:opacity-50 transition-all cursor-pointer"
+            >
+              <Check className="w-4 h-4" /> Salvar no Diário ({manualCalories} kcal)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

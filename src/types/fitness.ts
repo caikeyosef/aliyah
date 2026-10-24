@@ -36,7 +36,10 @@ export interface UserProfile {
   bmr: number;              // Taxa metabólica basal (kcal)
   tdee: number;             // Gasto energético total diário (kcal)
   calorieAdjustment: number;// Déficit (-) ou Superávit (+)
-  targetCalories: number;   // Meta diária de calorias
+  recommendedCalories: number; // Calorias padrões recomendadas pelo app conforme o plano
+  isCustomCalories?: boolean;  // Indica se o usuário optou por valor livre
+  customCalories?: number;     // Valor numérico livre escolhido pelo usuário
+  targetCalories: number;   // Meta diária de calorias efetiva
   targetProtein: number;    // Gramas de proteína
   targetCarbs: number;      // Gramas de carboidrato
   targetFat: number;        // Gramas de gordura

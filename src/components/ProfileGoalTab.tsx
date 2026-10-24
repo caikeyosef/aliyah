@@ -120,23 +120,47 @@ export const ProfileGoalTab: React.FC<ProfileGoalTabProps> = ({
             <span className="text-xs text-slate-400">Atividade: {activityInfo.title}</span>
           </div>
 
-          <div className="bg-[#060c19] border border-amber-500/40 rounded-2xl p-4 flex flex-col justify-between h-28">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5" /> 3. Meta Diária
-            </span>
-            <div className="text-2xl font-black text-amber-300 font-mono">
+          <div
+            onClick={onOpenSetGoalModal}
+            className="bg-[#060c19] border border-amber-500/40 rounded-2xl p-4 flex flex-col justify-between h-auto min-h-[7rem] cursor-pointer hover:border-amber-400 transition-all group"
+            title="Clique para ajustar meta e calorias livres"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
+                <Flame className="w-3.5 h-3.5" /> 3. Meta Diária
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  profile.isCustomCalories
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                {profile.isCustomCalories ? 'Valor Livre' : 'Padrão do App'}
+              </span>
+            </div>
+            <div className="text-2xl font-black text-amber-300 font-mono my-1">
               {profile.targetCalories}{' '}
               <span className="text-xs font-normal text-amber-400/80 font-sans">kcal/dia</span>
             </div>
-            <span className="text-xs text-amber-400/90 font-medium">
-              {profile.hasActiveGoal
-                ? profile.calorieAdjustment < 0
-                  ? `Déficit: ${profile.calorieAdjustment} kcal`
-                  : profile.calorieAdjustment > 0
-                  ? `Superávit: +${profile.calorieAdjustment} kcal`
-                  : 'Equilíbrio calórico'
-                : 'Modo Livre'}
-            </span>
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="truncate">
+                {profile.isCustomCalories ? (
+                  <span className="text-amber-300/90">
+                    Padrão seria: {profile.recommendedCalories || profile.tdee} kcal
+                  </span>
+                ) : profile.hasActiveGoal ? (
+                  profile.calorieAdjustment < 0
+                    ? `Déficit: ${profile.calorieAdjustment} kcal`
+                    : profile.calorieAdjustment > 0
+                    ? `Superávit: +${profile.calorieAdjustment} kcal`
+                    : 'Equilíbrio calórico'
+                ) : (
+                  'Modo Livre'
+                )}
+              </span>
+              <span className="text-[11px] text-amber-400 group-hover:underline">Alterar</span>
+            </div>
           </div>
         </div>
 
