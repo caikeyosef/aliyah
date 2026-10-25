@@ -270,21 +270,18 @@ function renderMinimalistWorkout(
   ctx.save();
 
   const totalEx = summary.exercises.length;
+  // Use spacious single-column width for up to 10 exercises so full names have 660+ px of space
+  const isTwoColumns = totalEx > 10;
   const isLargeList = totalEx >= 7;
   const isMediumList = totalEx >= 5;
 
-  // 1. Activity Title (Centered, Clean, Uppercase)
-  // Shift slightly up if there are many exercises to provide plenty of vertical canvas space
+  // 1. Activity Title (Centered, Clean, Uppercase - Never truncated)
   const titleY = isLargeList ? 285 : isMediumList ? 320 : 350;
   ctx.textAlign = 'center';
-  ctx.font = '900 42px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillStyle = '#ffffff';
 
-  let cleanTitle = post.title.toUpperCase();
-  if (cleanTitle.length > 30) {
-    cleanTitle = cleanTitle.slice(0, 28) + '...';
-  }
-  ctx.fillText(cleanTitle, centerX, titleY);
+  const cleanTitle = post.title.toUpperCase();
+  drawCompleteFittedText(ctx, cleanTitle, centerX, titleY, contentWidth - 40, 42, 22, '900');
 
   // Subtitle / Muscle Focus (Clean tags)
   let headerBottomY = titleY;
@@ -359,24 +356,24 @@ function renderMinimalistWorkout(
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.font = `800 ${isLargeList ? 19 : 21}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`🏆 NOVO RECORDE: ${summary.prsAchieved[0].toUpperCase()}`, centerX, currentY + (isLargeList ? 36 : 42));
+    const prText = `🏆 NOVO RECORDE: ${summary.prsAchieved[0].toUpperCase()}`;
+    drawCompleteFittedText(ctx, prText, centerX, currentY + (isLargeList ? 36 : 42), cardW - 30, isLargeList ? 19 : 21, 13, '800');
 
     currentY += prH + (isLargeList ? 20 : 26);
   }
 
-  // 4. Exercises List (ALL exercises rendered, adaptive 1 or 2 columns)
+  // 4. Exercises List (ALL exercises rendered with COMPLETE names)
   if (drawExercises && totalEx > 0) {
     const exList = summary.exercises; // ALL exercises included, none left out!
     const footerMaxY = 1750; // Keep safe distance before ALIYAH footer
     const availableH = Math.max(200, footerMaxY - currentY);
 
-    if (totalEx <= 6) {
-      // Single Column layout (1 to 6 exercises)
-      const gap = totalEx <= 4 ? 12 : 9;
+    if (!isTwoColumns) {
+      // Single Column layout (1 to 10 exercises, card width = 900px, 660+ px of space for full name)
+      const gap = totalEx <= 4 ? 14 : totalEx <= 6 ? 11 : totalEx <= 8 ? 9 : 7;
       const rawRowH = Math.floor((availableH - (totalEx - 1) * gap) / totalEx);
-      const rowH = Math.min(totalEx <= 4 ? 100 : 84, Math.max(68, rawRowH));
+      const rowH = Math.min(totalEx <= 4 ? 98 : totalEx <= 6 ? 84 : totalEx <= 8 ? 74 : 66, Math.max(56, rawRowH));
 
       exList.forEach((ex, idx) => {
         const rowY = currentY + idx * (rowH + gap);
@@ -394,22 +391,29 @@ function renderMinimalistWorkout(
         ctx.textAlign = 'left';
         ctx.font = '800 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillStyle = accentColor;
-        ctx.fillText(numStr, cardX + 24, rowY + rowH * 0.44);
+        ctx.fillText(numStr, cardX + 22, rowY + rowH * 0.44);
 
-        // Exercise Name
-        const nameX = cardX + 58;
-        ctx.font = `800 ${rowH > 80 ? 26 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        // Exercise Name - ALWAYS COMPLETE WITHOUT ANY SLICE OR CUTOFF
+        const nameX = cardX + 56;
+        const rightAreaWidth = 175;
+        const maxNameWidth = cardW - 56 - rightAreaWidth - 10; // ~659px of space
+
         ctx.fillStyle = '#ffffff';
+        const measuredNameWidth = drawCompleteFittedText(
+          ctx,
+          ex.name,
+          nameX,
+          rowY + rowH * (rowH > 70 ? 0.44 : 0.46),
+          ex.isPr ? maxNameWidth - 44 : maxNameWidth,
+          rowH > 80 ? 25 : rowH > 68 ? 22 : 19,
+          13,
+          '800'
+        );
 
-        let exName = ex.name;
-        if (exName.length > 25) exName = exName.slice(0, 23) + '...';
-        ctx.fillText(exName, nameX, rowY + rowH * 0.44);
-
-        // PR Pill if record
+        // PR Pill if record (placed right after the complete name)
         if (ex.isPr) {
-          const nameWidth = ctx.measureText(exName).width;
-          const prBadgeX = nameX + nameWidth + 12;
-          const prBadgeY = rowY + rowH * 0.44 - 18;
+          const prBadgeX = nameX + measuredNameWidth + 10;
+          const prBadgeY = rowY + rowH * (rowH > 70 ? 0.44 : 0.46) - 17;
           drawRoundedRect(ctx, prBadgeX, prBadgeY, 36, 20, 6);
           ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
           ctx.fill();
@@ -425,31 +429,39 @@ function renderMinimalistWorkout(
         }
 
         // Subtitle: sets detail
-        ctx.font = `600 ${rowH > 80 ? 18 : 15}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         const setsSubtitle = ex.setsDetail || `${ex.setsCount} séries completas`;
-        ctx.fillText(setsSubtitle, nameX, rowY + rowH * 0.78);
+        drawCompleteFittedText(
+          ctx,
+          setsSubtitle,
+          nameX,
+          rowY + rowH * (rowH > 70 ? 0.78 : 0.8),
+          maxNameWidth,
+          rowH > 80 ? 17 : rowH > 68 ? 15 : 13,
+          11,
+          '600'
+        );
 
         // Right: Max load or reps
         ctx.textAlign = 'right';
-        ctx.font = `900 ${rowH > 80 ? 30 : 25}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.font = `900 ${rowH > 80 ? 30 : rowH > 68 ? 26 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.fillStyle = accentColor;
         const rightText = ex.maxWeightKg > 0 ? `${ex.maxWeightKg} kg` : `${ex.totalReps} reps`;
-        ctx.fillText(rightText, cardX + cardW - 28, rowY + rowH * 0.44);
+        ctx.fillText(rightText, cardX + cardW - 24, rowY + rowH * 0.44);
 
-        ctx.font = `600 ${rowH > 80 ? 16 : 14}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.font = `600 ${rowH > 80 ? 16 : 13}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.fillText(`${ex.setsCount} séries`, cardX + cardW - 28, rowY + rowH * 0.78);
+        ctx.fillText(`${ex.setsCount} séries`, cardX + cardW - 24, rowY + rowH * 0.78);
       });
     } else {
-      // Two-Column Split Grid layout (7 or more exercises, up to 20+)
+      // Two-Column Split Grid layout (for workouts with 11 or more exercises)
       const colGap = 16;
       const colW = (cardW - colGap) / 2; // 442px
       const numRows = Math.ceil(totalEx / 2);
 
-      const gap = numRows >= 9 ? 6 : numRows >= 7 ? 8 : 10;
+      const gap = numRows >= 9 ? 6 : 8;
       const rawRowH = Math.floor((availableH - (numRows - 1) * gap) / numRows);
-      const rowH = Math.min(80, Math.max(50, rawRowH));
+      const rowH = Math.min(76, Math.max(50, rawRowH));
 
       exList.forEach((ex, idx) => {
         const col = idx % 2;
@@ -474,40 +486,54 @@ function renderMinimalistWorkout(
         ctx.textAlign = 'left';
         ctx.font = `800 ${rowH > 64 ? 14 : 12}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.fillStyle = accentColor;
-        ctx.fillText(numStr, exX + 16, rowY + rowH * 0.45);
+        ctx.fillText(numStr, exX + 14, rowY + rowH * 0.45);
 
-        // Exercise Name
-        const nameX = exX + (rowH > 64 ? 42 : 38);
-        ctx.font = `800 ${rowH > 64 ? 19 : 16}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        // Exercise Name - Complete auto-fitted text (NEVER sliced)
+        const nameX = exX + (rowH > 64 ? 38 : 34);
+        const rightStatWidth = 85;
+        const maxColNameWidth = thisColW - (nameX - exX) - rightStatWidth;
+
         ctx.fillStyle = '#ffffff';
-
-        // Max character limits based on column width
-        const maxChars = isLastOdd ? 35 : (rowH > 64 ? 17 : 15);
-        let exName = ex.name;
-        if (exName.length > maxChars) exName = exName.slice(0, maxChars - 2) + '...';
-        ctx.fillText(exName, nameX, rowY + rowH * 0.45);
+        drawCompleteFittedText(
+          ctx,
+          ex.name,
+          nameX,
+          rowY + rowH * 0.45,
+          maxColNameWidth,
+          rowH > 64 ? 18 : 16,
+          11,
+          '800'
+        );
 
         // Subtitle: sets count
-        ctx.font = `600 ${rowH > 64 ? 14 : 12}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
         const setsSubtitle = `${ex.setsCount} séries • ${ex.totalReps} reps`;
-        ctx.fillText(setsSubtitle, nameX, rowY + rowH * 0.8);
+        drawCompleteFittedText(
+          ctx,
+          setsSubtitle,
+          nameX,
+          rowY + rowH * 0.8,
+          maxColNameWidth,
+          rowH > 64 ? 13 : 11,
+          10,
+          '600'
+        );
 
         // Right side: Max Weight
         ctx.textAlign = 'right';
-        ctx.font = `900 ${rowH > 64 ? 22 : 18}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.font = `900 ${rowH > 64 ? 20 : 17}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.fillStyle = accentColor;
         const rightText = ex.maxWeightKg > 0 ? `${ex.maxWeightKg} kg` : `${ex.totalReps}r`;
-        ctx.fillText(rightText, exX + thisColW - 16, rowY + rowH * 0.45);
+        ctx.fillText(rightText, exX + thisColW - 14, rowY + rowH * 0.45);
 
         // PR tag or sets count
         ctx.font = `600 ${rowH > 64 ? 13 : 11}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         if (ex.isPr) {
           ctx.fillStyle = '#fbbf24';
-          ctx.fillText('★ PR', exX + thisColW - 16, rowY + rowH * 0.8);
+          ctx.fillText('★ PR', exX + thisColW - 14, rowY + rowH * 0.8);
         } else {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-          ctx.fillText(`${ex.setsCount} sets`, exX + thisColW - 16, rowY + rowH * 0.8);
+          ctx.fillText(`${ex.setsCount} sets`, exX + thisColW - 14, rowY + rowH * 0.8);
         }
       });
     }
@@ -562,6 +588,36 @@ function drawTransparentStickerCard(ctx: CanvasRenderingContext2D, width: number
 // ==========================================
 // UTILITIES
 // ==========================================
+
+/**
+ * Renders complete text within maxWidth by automatically scaling font size down.
+ * NEVER cuts off or truncates with ellipsis (...).
+ */
+function drawCompleteFittedText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  baseFontSize: number = 24,
+  minFontSize: number = 11,
+  fontWeight: string = '800',
+  fontFamily: string = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+): number {
+  let fontSize = baseFontSize;
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  let textWidth = ctx.measureText(text).width;
+
+  while (textWidth > maxWidth && fontSize > minFontSize) {
+    fontSize -= 0.5;
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    textWidth = ctx.measureText(text).width;
+  }
+
+  ctx.fillText(text, x, y);
+  return textWidth;
+}
+
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
