@@ -269,10 +269,15 @@ function renderMinimalistWorkout(
 
   ctx.save();
 
+  const totalEx = summary.exercises.length;
+  const isLargeList = totalEx >= 7;
+  const isMediumList = totalEx >= 5;
+
   // 1. Activity Title (Centered, Clean, Uppercase)
-  const titleY = 360;
+  // Shift slightly up if there are many exercises to provide plenty of vertical canvas space
+  const titleY = isLargeList ? 285 : isMediumList ? 320 : 350;
   ctx.textAlign = 'center';
-  ctx.font = '900 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.font = '900 42px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillStyle = '#ffffff';
 
   let cleanTitle = post.title.toUpperCase();
@@ -281,21 +286,23 @@ function renderMinimalistWorkout(
   }
   ctx.fillText(cleanTitle, centerX, titleY);
 
-  // Subtitle / Muscle Focus (Clean pill or text)
+  // Subtitle / Muscle Focus (Clean tags)
+  let headerBottomY = titleY;
   if (summary.muscleGroups.length > 0) {
-    ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '700 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = accentColor;
     const focusText = summary.muscleGroups.map((m) => `#${m.toUpperCase()}`).join('   ');
-    drawLetterSpacedText(ctx, focusText, centerX, titleY + 45);
+    drawLetterSpacedText(ctx, focusText, centerX, titleY + 40);
+    headerBottomY = titleY + 40;
   }
 
   // 2. The Hevy 3-Stat Card (Unified width: 900px, centered)
-  const cardY = titleY + 110;
-  const cardH = 200;
+  const cardY = headerBottomY + 50;
+  const cardH = isLargeList ? 165 : 185;
   const cardX = marginX;
   const cardW = contentWidth;
 
-  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 32);
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 28);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
   ctx.fill();
   ctx.lineWidth = 2;
@@ -316,8 +323,8 @@ function renderMinimalistWorkout(
     // Vertical Divider
     if (idx > 0) {
       ctx.beginPath();
-      ctx.moveTo(cardX + idx * colWidth, cardY + 35);
-      ctx.lineTo(cardX + idx * colWidth, cardY + cardH - 35);
+      ctx.moveTo(cardX + idx * colWidth, cardY + 28);
+      ctx.lineTo(cardX + idx * colWidth, cardY + cardH - 28);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
@@ -325,26 +332,26 @@ function renderMinimalistWorkout(
 
     // Label
     ctx.textAlign = 'center';
-    ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-    drawLetterSpacedText(ctx, col.label, colCenterX, cardY + 65);
+    drawLetterSpacedText(ctx, col.label, colCenterX, cardY + (isLargeList ? 48 : 55));
 
     // Value
-    ctx.font = '900 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = `900 ${isLargeList ? 46 : 50}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(col.value, colCenterX, cardY + 130);
+    ctx.fillText(col.value, colCenterX, cardY + (isLargeList ? 104 : 115));
 
     // Unit
-    ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = accentColor;
-    drawLetterSpacedText(ctx, col.unit.toUpperCase(), colCenterX, cardY + 165);
+    drawLetterSpacedText(ctx, col.unit.toUpperCase(), colCenterX, cardY + (isLargeList ? 138 : 152));
   });
 
   // 3. PR Banner (if achieved)
-  let currentY = cardY + cardH + 40;
+  let currentY = cardY + cardH + (isLargeList ? 24 : 32);
   if (summary.prsAchieved && summary.prsAchieved.length > 0) {
-    const prH = 72;
-    drawRoundedRect(ctx, cardX, currentY, cardW, prH, 20);
+    const prH = isLargeList ? 56 : 66;
+    drawRoundedRect(ctx, cardX, currentY, cardW, prH, 18);
     ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
     ctx.fill();
     ctx.lineWidth = 1.5;
@@ -352,53 +359,158 @@ function renderMinimalistWorkout(
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = `800 ${isLargeList ? 19 : 21}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`🏆 NOVO RECORDE: ${summary.prsAchieved[0].toUpperCase()}`, centerX, currentY + 45);
+    ctx.fillText(`🏆 NOVO RECORDE: ${summary.prsAchieved[0].toUpperCase()}`, centerX, currentY + (isLargeList ? 36 : 42));
 
-    currentY += prH + 30;
+    currentY += prH + (isLargeList ? 20 : 26);
   }
 
-  // 4. Exercises List (Minimalist Clean Rows, perfectly aligned with the 900px width)
-  if (drawExercises && summary.exercises.length > 0) {
-    const exList = summary.exercises.slice(0, 4);
-    const rowH = 105;
+  // 4. Exercises List (ALL exercises rendered, adaptive 1 or 2 columns)
+  if (drawExercises && totalEx > 0) {
+    const exList = summary.exercises; // ALL exercises included, none left out!
+    const footerMaxY = 1750; // Keep safe distance before ALIYAH footer
+    const availableH = Math.max(200, footerMaxY - currentY);
 
-    exList.forEach((ex, idx) => {
-      const rowY = currentY + idx * (rowH + 14);
+    if (totalEx <= 6) {
+      // Single Column layout (1 to 6 exercises)
+      const gap = totalEx <= 4 ? 12 : 9;
+      const rawRowH = Math.floor((availableH - (totalEx - 1) * gap) / totalEx);
+      const rowH = Math.min(totalEx <= 4 ? 100 : 84, Math.max(68, rawRowH));
 
-      // Clean card row
-      drawRoundedRect(ctx, cardX, rowY, cardW, rowH, 24);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
-      ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.stroke();
+      exList.forEach((ex, idx) => {
+        const rowY = currentY + idx * (rowH + gap);
 
-      // Left: Name & sets detail
-      ctx.textAlign = 'left';
-      ctx.font = '800 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#ffffff';
+        // Clean card row
+        drawRoundedRect(ctx, cardX, rowY, cardW, rowH, 20);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.stroke();
 
-      let exName = ex.name;
-      if (exName.length > 22) exName = exName.slice(0, 20) + '...';
-      ctx.fillText(exName, cardX + 32, rowY + 46);
+        // Exercise number pill
+        const numStr = String(idx + 1).padStart(2, '0');
+        ctx.textAlign = 'left';
+        ctx.font = '800 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = accentColor;
+        ctx.fillText(numStr, cardX + 24, rowY + rowH * 0.44);
 
-      ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.fillText(ex.setsDetail || `${ex.setsCount} séries completas`, cardX + 32, rowY + 78);
+        // Exercise Name
+        const nameX = cardX + 58;
+        ctx.font = `800 ${rowH > 80 ? 26 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = '#ffffff';
 
-      // Right: Max load or reps
-      ctx.textAlign = 'right';
-      ctx.font = '900 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = accentColor;
-      const rightText = ex.maxWeightKg > 0 ? `${ex.maxWeightKg} kg` : `${ex.totalReps} reps`;
-      ctx.fillText(rightText, cardX + cardW - 32, rowY + 52);
+        let exName = ex.name;
+        if (exName.length > 25) exName = exName.slice(0, 23) + '...';
+        ctx.fillText(exName, nameX, rowY + rowH * 0.44);
 
-      ctx.font = '600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillText(`${ex.setsCount} séries`, cardX + cardW - 32, rowY + 78);
-    });
+        // PR Pill if record
+        if (ex.isPr) {
+          const nameWidth = ctx.measureText(exName).width;
+          const prBadgeX = nameX + nameWidth + 12;
+          const prBadgeY = rowY + rowH * 0.44 - 18;
+          drawRoundedRect(ctx, prBadgeX, prBadgeY, 36, 20, 6);
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+          ctx.stroke();
+
+          ctx.font = '900 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#fbbf24';
+          ctx.textAlign = 'center';
+          ctx.fillText('PR', prBadgeX + 18, prBadgeY + 14);
+          ctx.textAlign = 'left';
+        }
+
+        // Subtitle: sets detail
+        ctx.font = `600 ${rowH > 80 ? 18 : 15}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        const setsSubtitle = ex.setsDetail || `${ex.setsCount} séries completas`;
+        ctx.fillText(setsSubtitle, nameX, rowY + rowH * 0.78);
+
+        // Right: Max load or reps
+        ctx.textAlign = 'right';
+        ctx.font = `900 ${rowH > 80 ? 30 : 25}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = accentColor;
+        const rightText = ex.maxWeightKg > 0 ? `${ex.maxWeightKg} kg` : `${ex.totalReps} reps`;
+        ctx.fillText(rightText, cardX + cardW - 28, rowY + rowH * 0.44);
+
+        ctx.font = `600 ${rowH > 80 ? 16 : 14}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillText(`${ex.setsCount} séries`, cardX + cardW - 28, rowY + rowH * 0.78);
+      });
+    } else {
+      // Two-Column Split Grid layout (7 or more exercises, up to 20+)
+      const colGap = 16;
+      const colW = (cardW - colGap) / 2; // 442px
+      const numRows = Math.ceil(totalEx / 2);
+
+      const gap = numRows >= 9 ? 6 : numRows >= 7 ? 8 : 10;
+      const rawRowH = Math.floor((availableH - (numRows - 1) * gap) / numRows);
+      const rowH = Math.min(80, Math.max(50, rawRowH));
+
+      exList.forEach((ex, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+
+        // If it's the single last item of an odd count, span both columns
+        const isLastOdd = idx === totalEx - 1 && totalEx % 2 === 1;
+        const thisColW = isLastOdd ? cardW : colW;
+        const exX = isLastOdd ? cardX : cardX + col * (colW + colGap);
+        const rowY = currentY + row * (rowH + gap);
+
+        // Clean compact card
+        drawRoundedRect(ctx, exX, rowY, thisColW, rowH, 16);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.stroke();
+
+        // Exercise number
+        const numStr = String(idx + 1).padStart(2, '0');
+        ctx.textAlign = 'left';
+        ctx.font = `800 ${rowH > 64 ? 14 : 12}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = accentColor;
+        ctx.fillText(numStr, exX + 16, rowY + rowH * 0.45);
+
+        // Exercise Name
+        const nameX = exX + (rowH > 64 ? 42 : 38);
+        ctx.font = `800 ${rowH > 64 ? 19 : 16}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = '#ffffff';
+
+        // Max character limits based on column width
+        const maxChars = isLastOdd ? 35 : (rowH > 64 ? 17 : 15);
+        let exName = ex.name;
+        if (exName.length > maxChars) exName = exName.slice(0, maxChars - 2) + '...';
+        ctx.fillText(exName, nameX, rowY + rowH * 0.45);
+
+        // Subtitle: sets count
+        ctx.font = `600 ${rowH > 64 ? 14 : 12}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        const setsSubtitle = `${ex.setsCount} séries • ${ex.totalReps} reps`;
+        ctx.fillText(setsSubtitle, nameX, rowY + rowH * 0.8);
+
+        // Right side: Max Weight
+        ctx.textAlign = 'right';
+        ctx.font = `900 ${rowH > 64 ? 22 : 18}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = accentColor;
+        const rightText = ex.maxWeightKg > 0 ? `${ex.maxWeightKg} kg` : `${ex.totalReps}r`;
+        ctx.fillText(rightText, exX + thisColW - 16, rowY + rowH * 0.45);
+
+        // PR tag or sets count
+        ctx.font = `600 ${rowH > 64 ? 13 : 11}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        if (ex.isPr) {
+          ctx.fillStyle = '#fbbf24';
+          ctx.fillText('★ PR', exX + thisColW - 16, rowY + rowH * 0.8);
+        } else {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.fillText(`${ex.setsCount} sets`, exX + thisColW - 16, rowY + rowH * 0.8);
+        }
+      });
+    }
   }
 
   ctx.restore();

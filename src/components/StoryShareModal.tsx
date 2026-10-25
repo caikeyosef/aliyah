@@ -404,7 +404,7 @@ export const StoryShareModal: React.FC<StoryShareModalProps> = ({
                       onChange={(e) => setShowExercises(e.target.checked)}
                       className="rounded accent-amber-500 w-4 h-4"
                     />
-                    <span>Lista de Exercícios & Cargas</span>
+                    <span>Lista com Todos os Exercícios ({post.workoutSummary?.exercises.length || 0})</span>
                   </label>
                 )}
               </div>
